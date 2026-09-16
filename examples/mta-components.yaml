@@ -1,0 +1,109 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: inventory-service
+  description: Java-based inventory management service being migrated from JBoss EAP to Quarkus
+  annotations:
+    mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/inventory-service"
+    mta.konveyor.io/assigned-developer: "user:development/guest"
+  tags:
+    - java
+    - quarkus
+    - migration-candidate
+spec:
+  type: service
+  lifecycle: production
+  owner: user:development/guest
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: order-management
+  description: Spring Boot order processing service targeted for containerization on OpenShift
+  tags:
+    - java
+    - spring-boot
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: customer-portal
+  description: Java EE customer portal with EJB messaging and JSP views targeted for EAP 8 migration
+  annotations:
+    mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/customer-portal"
+  tags:
+    - java
+    - jboss-eap
+    - migration-candidate
+spec:
+  type: website
+  lifecycle: production
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: notification-hub
+  description: Java EE notification service with JMS messaging being migrated from EAP 7 to EAP 8
+  tags:
+    - java
+    - kafka
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: data-pipeline
+  description: Java EE batch processing pipeline targeted for Quarkus modernization
+  tags:
+    - java
+    - batch
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: retail-platform
+  description: Retail e-commerce platform being migrated to OpenShift
+spec:
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: internal-tools
+  description: Internal developer tooling and automation platform
+spec:
+  owner: user:default/user
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: mta-portfolio
+  description: Portfolio of applications managed by the Migration Toolkit for Applications
+spec:
+  owner: user:default/user

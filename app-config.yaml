@@ -216,6 +216,16 @@ catalog:
     #   rules:
     #     - allow: [User, Group]
 
+    # MTA example components
+    - type: file
+      target: ../../examples/mta-components.yaml
+
+    # MTA registration template
+    - type: file
+      target: ../../examples/mta-template/template.yaml
+      rules:
+        - allow: [Template]
+
 kubernetes:
   # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
 

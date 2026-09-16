@@ -1,0 +1,48 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: mta-register-application
+  title: Register application for migration
+  description: Register a Git repository with the Migration Toolkit for Applications. The application will appear in the catalog after technology discovery completes.
+  tags:
+    - migration
+    - mta
+    - modernization
+spec:
+  type: service
+  parameters:
+    - title: Application details
+      description: Enter the Git repository URL of the application to analyze.
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository URL
+          type: string
+          description: Git repository URL for the application
+          ui:placeholder: 'https://github.com/org/repo'
+        rootPath:
+          title: Application root path
+          type: string
+          description: >-
+            Path to the application root directory within the repository.
+            Use for monorepos (e.g., "services/inventory"). Leave empty
+            if the application is at the repository root.
+          ui:placeholder: 'services/my-app'
+  steps:
+    - id: register-with-mta
+      name: Register with MTA
+      action: mta:register-application
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        rootPath: ${{ parameters.rootPath }}
+  output:
+    links:
+      - title: View migration status
+        url: /catalog/default/component/${{ steps['register-with-mta'].output.applicationName }}/migration?autoDiscover=true
+    text:
+      - title: Application registered
+        content: |
+          **${{ steps['register-with-mta'].output.applicationName }}** has been registered with MTA.
+
+          Click **View migration status** to see discovered technologies and select a migration path.

@@ -69,4 +69,8 @@ backend.add(import('@backstage/plugin-signals-backend'));
 // mcp actions plugin
 backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
+backend.add(import('@internal/backstage-plugin-mta-backend'));
+backend.add(import('@internal/backstage-plugin-catalog-backend-module-mta-entity-provider'));
+backend.add(import('@internal/backstage-plugin-scaffolder-backend-module-mta-actions'));
+backend.add(import('@internal/backstage-plugin-mta-mock-hub-backend'));
 backend.start();
