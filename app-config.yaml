@@ -95,6 +95,11 @@ app:
               row: 9
               width: 4
               height: 4
+            - component: MtaHomeSection
+              column: 0
+              row: 13
+              width: 12
+              height: 6
 
 organization:
   name: My Company
@@ -220,6 +225,12 @@ catalog:
     - type: file
       target: ../../examples/mta-components.yaml
 
+
+    # MTA users and groups
+    - type: file
+      target: ../../examples/mta-users.yaml
+      rules:
+        - allow: [User, Group]
     # MTA registration template
     - type: file
       target: ../../examples/mta-template/template.yaml

@@ -1,0 +1,45 @@
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: user
+spec:
+  memberOf: [rhdh-team]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: guest
+spec:
+  memberOf: [rhdh-team]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: guest
+  namespace: development
+spec:
+  memberOf: [default/rhdh-team]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: dcohen213
+spec:
+  memberOf: [rhdh-team]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-team
+  title: RHDH team
+spec:
+  type: team
+  children: []
