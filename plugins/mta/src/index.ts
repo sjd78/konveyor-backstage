@@ -38,3 +38,6 @@ export { MigrationTab } from './components/MigrationTab';
 export { MigrationStatusChip } from './components/MigrationStatusChip';
 export { MigrationTabPage } from './components/MigrationTabPage';
 export { MtaHomeSection } from './components/MtaHomeCards';
+export { MtaPersonaCard } from './components/MtaPersonaCard';
+export { usePersonaRole } from './hooks/usePersonaRole';
+export type { PersonaRole, PersonaRoleState } from './hooks/usePersonaRole';
