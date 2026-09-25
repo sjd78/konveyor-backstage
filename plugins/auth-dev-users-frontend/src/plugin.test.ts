@@ -1,8 +1,9 @@
-import { authDevUsersPlugin } from './plugin';
+import { authDevUsersModule } from './module';
 
-describe('authDevUsersPlugin', () => {
-  it('should export plugin', () => {
-    expect(authDevUsersPlugin).toBeDefined();
-    expect(authDevUsersPlugin.id).toBe('auth-dev-users');
+describe('authDevUsersModule', () => {
+  it('should export module for app plugin', () => {
+    expect(authDevUsersModule).toBeDefined();
+    expect(authDevUsersModule.$$type).toBe('@backstage/FrontendModule');
+    expect(authDevUsersModule.pluginId).toBe('app');
   });
 });

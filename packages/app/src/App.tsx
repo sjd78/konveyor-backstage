@@ -3,7 +3,7 @@ import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import mtaPlugin from '@internal/backstage-plugin-mta';
 import { navModule } from './modules/nav';
 import { homeModule } from './modules/home';
-import authDevUsersPlugin from '@internal/backstage-plugin-auth-dev-users-frontend';
+import authDevUsersModule from '@internal/backstage-plugin-auth-dev-users-frontend';
 
 export default createApp({
   features: [
@@ -11,6 +11,6 @@ export default createApp({
     mtaPlugin,
     navModule,
     homeModule,
-    authDevUsersPlugin,
+    authDevUsersModule,
   ],
 });

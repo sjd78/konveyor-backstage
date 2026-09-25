@@ -1,7 +1,5 @@
-import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
-import { signInPageExtension } from './extensions';
-
-export const authDevUsersPlugin = createFrontendPlugin({
-  pluginId: 'auth-dev-users',
-  extensions: [signInPageExtension],
-});
+export {
+  authDevUsersModule,
+  authDevUsersModule as authDevUsersPlugin,
+  authDevUsersModule as default,
+} from './module';
