@@ -73,7 +73,11 @@ class DevUserIdentity implements IdentityApi {
   }
 
   async signOut(): Promise<void> {
-    /* dev-only: no-op */
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* noop */
+    }
   }
 
   private async ensureFresh(): Promise<SessionResponse> {
