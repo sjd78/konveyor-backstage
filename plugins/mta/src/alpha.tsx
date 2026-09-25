@@ -24,6 +24,7 @@ import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
 import { MigrationTabPage } from './components/MigrationTabPage';
 import { MtaHomeSection } from './components/MtaHomeCards';
 import { rootRouteRef } from './routes';
+import { MigrationIcon } from './icons/MigrationIcon';
 
 const mtaEntityContent = EntityContentBlueprint.makeWithOverrides({
   name: 'migration',
@@ -53,6 +54,8 @@ const mtaHomeWidget = HomePageWidgetBlueprint.make({
 const mtaPage = PageBlueprint.make({
   params: {
     path: '/mta',
+    title: 'Migration',
+    icon: <MigrationIcon />,
     routeRef: rootRouteRef,
     loader: async () => <MtaHomeSection />,
   },
