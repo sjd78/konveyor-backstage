@@ -92,9 +92,9 @@ function registerApplication(
       current.error = 'no-archetype-match';
       current.discoveredTags = ['Unknown Framework 1.x', 'Custom Build System'];
       current.errorMessage =
-        'Technology discovery completed, but the discovered technologies do not match any configured archetype. Discovered tags: ' +
-        current.discoveredTags.join(', ') +
-        '.';
+        `Technology discovery completed, but the discovered technologies do not match any configured archetype. Discovered tags: ${ 
+        current.discoveredTags.join(', ') 
+        }.`;
       logger?.info(
         `Application ${appName} (${id}) — simulated no-archetype-match error`,
       );
