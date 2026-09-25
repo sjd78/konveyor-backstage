@@ -25,8 +25,11 @@ backend.add(import('@backstage/plugin-techdocs-backend'));
 
 // auth plugin
 backend.add(import('@backstage/plugin-auth-backend'));
-// Custom guest provider that lets the frontend choose which dev user to sign in as.
-// Replaces @backstage/plugin-auth-backend-module-guest-provider.
+// See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
+// guest provider: backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
+// guest provider: See https://backstage.io/docs/auth/guest/provider
+
+// Replace the guest provider with a custom provider that lets the frontend choose the user.
 backend.add(import('./authModuleDevUsers'));
 
 // catalog plugin

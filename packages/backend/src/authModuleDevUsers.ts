@@ -22,10 +22,10 @@ export default createBackendModule({
   register(reg) {
     reg.registerInit({
       deps: {
-        providers: authProvidersExtensionPoint,
+        authProviders: authProvidersExtensionPoint,
         config: coreServices.rootConfig,
       },
-      async init({ providers, config }) {
+      async init({ authProviders, config }) {
         const guestConfig = config.getOptionalConfig('auth.providers.guest');
         const usersConfig = guestConfig?.getOptionalConfigArray('users') ?? [];
         const allowedRefs = usersConfig.map(c =>
@@ -36,7 +36,7 @@ export default createBackendModule({
           guestConfig?.getOptionalString('userEntityRef') ??
           'user:default/guest';
 
-        providers.registerProvider({
+        authProviders.registerProvider({
           providerId: 'guest',
           factory: createProxyAuthProviderFactory({
             authenticator: createProxyAuthenticator({

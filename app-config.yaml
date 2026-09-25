@@ -22,6 +22,7 @@ app:
     # Visit data is stored via UserSettings storage if available, otherwise browser localStorage.
     # - api:home/visits: true
     # - app-root-element:home/visit-listener: true
+
     - home-page-widget:home/toolkit:
         config:
           tools:
@@ -102,7 +103,7 @@ app:
               height: 6
 
 organization:
-  name: My Company
+  name: KonveyorDevelopment
 
 backend:
   # Used for enabling authentication, secret is shared by all backend plugins
@@ -148,7 +149,7 @@ integrations:
     #   apiBaseUrl: https://ghe.example.net/api/v3
     #   token: ${GHE_TOKEN}
 
-proxy:
+#proxy:
   ### Example for how to add a proxy endpoint for the frontend.
   ### A typical reason to do this is to handle HTTPS and CORS for internal services.
   # endpoints:
@@ -177,6 +178,7 @@ auth:
           displayName: Sarah (Architect)
         - userEntityRef: user:default/dev-chen
           displayName: Chen (Developer)
+
   # see https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
   # to learn more about client id metadata documents
   clientIdMetadataDocuments:
@@ -190,7 +192,7 @@ auth:
     #   - 'http://localhost:*'
     #   - 'https://*.example.com/*'
 
-scaffolder:
+#scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
 
 catalog:
@@ -216,6 +218,22 @@ catalog:
       rules:
         - allow: [User, Group]
 
+    # MTA example components
+    - type: file
+      target: ../../examples/konveyor/mta-components.yaml
+
+    # MTA users and groups
+    - type: file
+      target: ../../examples/konveyor/mta-users.yaml
+      rules:
+        - allow: [User, Group]
+
+    # MTA registration template
+    - type: file
+      target: ../../examples/konveyor/mta-template.yaml
+      rules:
+        - allow: [Template]
+
     ## Uncomment these lines to add more example data
     # - type: url
     #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
@@ -226,23 +244,7 @@ catalog:
     #   rules:
     #     - allow: [User, Group]
 
-    # MTA example components
-    - type: file
-      target: ../../examples/mta-components.yaml
-
-    # MTA users and groups
-    - type: file
-      target: ../../examples/mta-users.yaml
-      rules:
-        - allow: [User, Group]
-
-    # MTA registration template
-    - type: file
-      target: ../../examples/mta-template/template.yaml
-      rules:
-        - allow: [Template]
-
-kubernetes:
+#kubernetes:
   # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
 
 # see https://backstage.io/docs/permissions/getting-started for more on the permission framework
@@ -252,5 +254,5 @@ permission:
 
 # see https://backstage.io/docs/ai/mcp-actions for more details
 mcpActions:
-  name: 'My Company Backstage' # defaults to "backstage"
+  name: 'Konveyor Development Backstage' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
