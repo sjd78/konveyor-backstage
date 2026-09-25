@@ -6,16 +6,6 @@ spec:
   memberOf: [rhdh-team]
 
 ---
-
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: guest
-spec:
-  memberOf: [rhdh-team]
-
----
-
 apiVersion: backstage.io/v1alpha1
 kind: User
 metadata:
@@ -43,3 +33,45 @@ metadata:
 spec:
   type: team
   children: []
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: sarah-architect
+spec:
+  memberOf: [group:default/mta-architects]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: dev-chen
+spec:
+  memberOf: [group:default/mta-developers]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: mta-architects
+  title: MTA Architects
+spec:
+  type: team
+  children: []
+  members: [user:default/sarah-architect]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: mta-developers
+  title: MTA Developers
+spec:
+  type: team
+  children: []
+  members: [user:default/dev-chen]

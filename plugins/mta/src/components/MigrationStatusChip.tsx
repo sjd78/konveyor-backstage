@@ -19,25 +19,22 @@ import {
   StatusPending,
 } from '@backstage/core-components';
 import type { MigrationStatus } from '../types';
-import type { PrototypeScopeId } from '../prototype';
 
-export function MigrationStatusChip({ status, scope }: { status: MigrationStatus; scope?: PrototypeScopeId }) {
-  const label = status === 'Active' && scope && scope !== 'core' ? 'Pre-remediation' : status;
-
+export function MigrationStatusChip({ status }: { status: MigrationStatus }) {
   switch (status) {
     case 'Completed':
-      return <StatusOK>{label}</StatusOK>;
+      return <StatusOK>{status}</StatusOK>;
     case 'Failed':
-      return <StatusError>{label}</StatusError>;
+      return <StatusError>{status}</StatusError>;
     case 'Active':
     case 'Post-remediation':
-      return <StatusOK>{label}</StatusOK>;
+      return <StatusOK>{status}</StatusOK>;
     case 'Discovery':
     case 'Path Selection':
     case 'Analysis':
-      return <StatusPending>{label}</StatusPending>;
+      return <StatusPending>{status}</StatusPending>;
     case 'Not Started':
     default:
-      return <StatusPending>{label}</StatusPending>;
+      return <StatusPending>{status}</StatusPending>;
   }
 }

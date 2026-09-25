@@ -16,10 +16,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { EmptyState } from '@backstage/core-components';
+import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { stringifyEntityRef } from '@backstage/catalog-model';
-import { usePrototypeScope, usePersona, useGlobalPhase, resolveEntityPhase, advancePhase } from '../prototype';
+import { usePersonaRole } from '../hooks/usePersonaRole';
 import { useMtaStore } from '../store/MtaStore';
+import type { MigrationStatus } from '../types';
 import { DEVELOPER_PHASE_CONFIG, DEFAULT_DEVELOPER_PHASE } from '../utils';
 import { PhaseNotStarted } from './phases/PhaseNotStarted';
 import { PhaseDiscovery } from './phases/PhaseDiscovery';
@@ -29,46 +31,72 @@ import { PhaseActive } from './phases/PhaseActive';
 import { PhaseCompleted } from './phases/PhaseCompleted';
 import { PhaseFailed } from './phases/PhaseFailed';
 
+interface MockHubApplication {
+  status: 'registering' | 'discovered' | 'failed';
+  discoveredTags: string[];
+  error: string | null;
+  errorMessage: string | null;
+}
+
+function mockStatus(status: string | undefined): MigrationStatus {
+  switch (status) {
+    case 'discovered':
+    case 'Path Selection':
+      return 'Path Selection';
+    case 'failed':
+    case 'Failed':
+      return 'Failed';
+    default:
+      return 'Discovery';
+  }
+}
+
+function annotatedTags(value: string | undefined): string[] {
+  if (!value) return [];
+  try {
+    const tags: unknown = JSON.parse(value);
+    return Array.isArray(tags) && tags.every(tag => typeof tag === 'string')
+      ? tags
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function MigrationTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { entity } = useEntity();
   const store = useMtaStore();
-  const persona = usePersona();
-  const scope = usePrototypeScope();
-  const globalPhase = useGlobalPhase();
+  const discoveryApi = useApi(discoveryApiRef);
+  const persona = usePersonaRole();
   const entityRef = stringifyEntityRef(entity);
+  const annotations = entity.metadata.annotations ?? {};
+  const mockAppId = annotations['konveyor.io/application-id'];
+  const annotationStatus = annotations['mta.konveyor.io/status'];
+  const annotationTags = annotations['mta.konveyor.io/discovered-tags'];
   const seededRef = useRef('');
-  const autoDiscoverHandled = useRef(false);
-  const lastGenRef = useRef(-1);
-  const [errorType, setErrorType] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail ?? {};
-      setErrorType(detail.errorType ?? '');
-      setErrorMessage(detail.errorMessage ?? '');
-    };
-    window.addEventListener('mta-error-type-override', handler);
-    return () => window.removeEventListener('mta-error-type-override', handler);
-  }, []);
+  const autoDiscoverHandled = useRef('');
+  const [hubError, setHubError] = useState<{
+    id: string;
+    type: string;
+    message: string;
+  } | null>(null);
 
   const repoUrl =
-    entity.metadata.annotations?.['mta.konveyor.io/repo-url'] ||
-    entity.metadata.annotations?.['backstage.io/source-location']?.replace('url:', '') ||
+    annotations['mta.konveyor.io/repo-url'] ||
+    annotations['backstage.io/source-location']?.replace('url:', '') ||
     '';
 
   useEffect(() => {
-    const existingApp = store.getApplicationByEntityRef(entityRef);
-    const isNewApp = !existingApp;
-
-    const id = store.ensureApplication(entityRef, {
+    const tags = mockAppId ? annotatedTags(annotationTags) : [];
+    const archetype = store.matchArchetypes(tags)[0];
+    store.ensureApplication(entityRef, {
       name: entity.metadata.name,
       repoUrl,
-      discoveredTags: [],
-      archetypeId: 'arch-1',
+      discoveredTags: tags,
+      archetypeId: archetype?.id ?? 'arch-1',
       targetProfileId: 'target-1',
-      status: globalPhase,
+      status: mockAppId ? mockStatus(annotationStatus) : 'Not Started',
       issuesCount: 0,
       criticalIssues: 0,
       storyPoints: 0,
@@ -78,48 +106,149 @@ export function MigrationTab() {
       devSpacesAvailable: true,
       devSpacesActive: false,
     });
-
-    const resolved = resolveEntityPhase(
-      entityRef,
-      isNewApp ? undefined : store.getApplicationById(id),
-      globalPhase,
-      lastGenRef.current,
-    );
-    lastGenRef.current = resolved.nextGen;
-    if (resolved.shouldUpdate) {
-      store.updateApplication(id, { status: resolved.phase });
-    }
-  }, [entityRef, store, entity.metadata.name, repoUrl, globalPhase]);
+  }, [
+    entityRef,
+    entity.metadata.name,
+    repoUrl,
+    mockAppId,
+    annotationStatus,
+    annotationTags,
+    store.ensureApplication,
+    store.matchArchetypes,
+  ]);
 
   const app = store.getApplicationByEntityRef(entityRef);
+  const appRef = useRef(app);
+  appRef.current = app;
   const appId = app?.id ?? '';
   const displayStatus = app?.status ?? 'Not Started';
+  const errorType =
+    hubError && hubError.id === mockAppId
+      ? hubError.type
+      : annotations['mta.konveyor.io/error'] ?? '';
+  const errorMessage =
+    hubError && hubError.id === mockAppId
+      ? hubError.message
+      : annotations['mta.konveyor.io/error-message'] ?? '';
 
   useEffect(() => {
-    if (autoDiscoverHandled.current) return;
-    if (searchParams.get('autoDiscover') !== 'true') return;
-    if (!appId) return;
-    autoDiscoverHandled.current = true;
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.delete('autoDiscover');
-      return next;
-    }, { replace: true });
-    store.updateApplication(appId, { status: 'Discovery' });
-    advancePhase(entityRef, 'Discovery');
-  }, [searchParams, setSearchParams, appId, store, entityRef]);
+    if (autoDiscoverHandled.current === entityRef) return;
+    if (searchParams.get('autoDiscover') !== 'true' || !appId) return;
+    autoDiscoverHandled.current = entityRef;
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('autoDiscover');
+        return next;
+      },
+      { replace: true },
+    );
+    if (!mockAppId && displayStatus === 'Not Started') {
+      store.updateApplication(appId, { status: 'Discovery' });
+    }
+  }, [
+    searchParams,
+    setSearchParams,
+    appId,
+    entityRef,
+    mockAppId,
+    displayStatus,
+    store.updateApplication,
+  ]);
 
   useEffect(() => {
-    if (!appId) return;
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.entityRef === entityRef) {
-        store.updateApplication(appId, { status: detail.phase });
-      }
+    if (!appId || mockAppId || displayStatus !== 'Discovery') return undefined;
+    let cancelled = false;
+    store.simulateDiscovery(repoUrl).then(tags => {
+      if (cancelled) return;
+      const archetype = store.matchArchetypes(tags)[0];
+      store.updateApplication(appId, {
+        discoveredTags: tags,
+        archetypeId: archetype?.id ?? 'arch-1',
+        status: archetype ? 'Path Selection' : 'Failed',
+      });
+    });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('mta-phase-override', handler);
-    return () => window.removeEventListener('mta-phase-override', handler);
-  }, [entityRef, appId, store]);
+  }, [
+    appId,
+    mockAppId,
+    displayStatus,
+    repoUrl,
+    store.simulateDiscovery,
+    store.matchArchetypes,
+    store.updateApplication,
+  ]);
+
+  useEffect(() => {
+    if (!appId || !mockAppId) return undefined;
+    let cancelled = false;
+    let timeout: number | undefined;
+
+    const poll = async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('mta-mock-hub');
+        const response = await fetch(
+          `${baseUrl}/applications/${encodeURIComponent(mockAppId)}`,
+        );
+        if (!response.ok)
+          throw new Error(`Mock Hub returned ${response.status}`);
+        const result = (await response.json()) as MockHubApplication;
+        if (cancelled) return;
+
+        const currentApp = appRef.current;
+        if (
+          currentApp &&
+          !['Analysis', 'Active', 'Post-remediation', 'Completed'].includes(
+            currentApp.status,
+          )
+        ) {
+          const tags = result.discoveredTags ?? [];
+          const archetype = store.matchArchetypes(tags)[0];
+          const status = mockStatus(result.status);
+          if (
+            currentApp.status !== status ||
+            currentApp.discoveredTags.length !== tags.length ||
+            currentApp.discoveredTags.some(
+              (tag, index) => tag !== tags[index],
+            ) ||
+            (archetype && currentApp.archetypeId !== archetype.id)
+          ) {
+            store.updateApplication(appId, {
+              status,
+              discoveredTags: tags,
+              ...(archetype ? { archetypeId: archetype.id } : {}),
+            });
+          }
+        }
+        if (result.status === 'failed') {
+          setHubError({
+            id: mockAppId,
+            type: result.error ?? '',
+            message: result.errorMessage ?? '',
+          });
+        }
+        if (result.status === 'discovered' || result.status === 'failed')
+          return;
+      } catch {
+        // A transient backend error should not replace the last known status.
+      }
+      if (!cancelled) timeout = window.setTimeout(poll, 2000);
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    appId,
+    mockAppId,
+    discoveryApi,
+    store.matchArchetypes,
+    store.updateApplication,
+  ]);
 
   useEffect(() => {
     if (!appId) return;
@@ -132,9 +261,11 @@ export function MigrationTab() {
       seededRef.current = key;
       store.seedIssuesIfNeeded(appId);
     }
-  }, [displayStatus, appId, store]);
+  }, [displayStatus, appId, store.seedIssuesIfNeeded]);
 
-  const target = app ? store.getTargetProfileById(app.targetProfileId) : undefined;
+  const target = app
+    ? store.getTargetProfileById(app.targetProfileId)
+    : undefined;
   const archetype = app ? store.getArchetypeById(app.archetypeId) : undefined;
   const issues = appId ? store.getIssuesForApp(appId) : [];
   const actions = appId ? store.getActionsForApp(appId) : [];
@@ -142,11 +273,15 @@ export function MigrationTab() {
   const handleStartDiscovery = useCallback(() => {
     if (!appId) return;
     store.updateApplication(appId, { status: 'Discovery' });
-    advancePhase(entityRef, 'Discovery');
-  }, [appId, store, entityRef]);
+  }, [appId, store.updateApplication]);
 
-  if (persona === 'developer' && displayStatus !== 'Active' && displayStatus !== 'Post-remediation') {
-    const phaseConfig = DEVELOPER_PHASE_CONFIG[displayStatus] ?? DEFAULT_DEVELOPER_PHASE;
+  if (
+    persona !== 'architect' &&
+    displayStatus !== 'Active' &&
+    displayStatus !== 'Post-remediation'
+  ) {
+    const phaseConfig =
+      DEVELOPER_PHASE_CONFIG[displayStatus] ?? DEFAULT_DEVELOPER_PHASE;
     return (
       <EmptyState
         title={phaseConfig.title}
@@ -160,11 +295,16 @@ export function MigrationTab() {
 
   switch (displayStatus) {
     case 'Not Started':
-      return <PhaseNotStarted persona={persona} onStartDiscovery={handleStartDiscovery} />;
+      return (
+        <PhaseNotStarted
+          persona="architect"
+          onStartDiscovery={handleStartDiscovery}
+        />
+      );
     case 'Discovery':
-      return <PhaseDiscovery repoUrl={repoUrl} store={store} entityRef={entityRef} />;
+      return <PhaseDiscovery repoUrl={repoUrl} />;
     case 'Path Selection':
-      return <PhasePathSelection app={app} store={store} entityRef={entityRef} />;
+      return <PhasePathSelection app={app} store={store} />;
     case 'Analysis':
       return <PhaseAnalyzing target={target} archetype={archetype} />;
     case 'Active':
@@ -178,13 +318,19 @@ export function MigrationTab() {
           persona={persona}
           target={target}
           isPostRemediation={displayStatus === 'Post-remediation'}
-          scope={scope}
         />
       );
     case 'Completed':
-      return scope === 'enhancements' ? <PhaseCompleted app={app} actions={actions} issues={issues} /> : null;
+      return <PhaseCompleted app={app} actions={actions} issues={issues} />;
     case 'Failed':
-      return <PhaseFailed app={app} store={store} errorType={errorType} errorMessage={errorMessage} />;
+      return (
+        <PhaseFailed
+          app={app}
+          store={store}
+          errorType={errorType}
+          errorMessage={errorMessage}
+        />
+      );
     default:
       return null;
   }

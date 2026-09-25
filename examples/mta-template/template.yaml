@@ -43,6 +43,6 @@ spec:
     text:
       - title: Application registered
         content: |
-          **${{ steps['register-with-mta'].output.applicationName }}** has been registered with MTA.
+          **${{ steps['register-with-mta'].output.applicationTitle }}** has been registered with MTA.
 
           Click **View migration status** to see discovered technologies and select a migration path.

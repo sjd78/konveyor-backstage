@@ -18,32 +18,44 @@ interface MtaApp {
   name: string;
   repoUrl: string;
   rootPath?: string;
-  status: string;
+  status: 'registering' | 'discovered' | 'failed';
   discoveredTags?: string[];
   error?: string | null;
   errorMessage?: string | null;
 }
 
-function sanitizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 63);
+function catalogName(app: MtaApp): string {
+  const prefix =
+    app.name
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 22) || 'application';
+  return `mta-${prefix}-${app.id}`;
 }
+
+const statusByHubStatus: Record<MtaApp['status'], string> = {
+  registering: 'Discovery',
+  discovered: 'Path Selection',
+  failed: 'Failed',
+};
 
 function appToEntity(app: MtaApp): ComponentEntity {
   const annotations: Record<string, string> = {
     'konveyor.io/application-id': app.id,
     'mta.konveyor.io/repo-url': app.repoUrl,
+    'mta.konveyor.io/assigned-developer': 'user:default/dev-chen',
+    'mta.konveyor.io/status': statusByHubStatus[app.status],
     'backstage.io/source-location': `url:${app.repoUrl}`,
     'backstage.io/managed-by-location': `mta-entity-provider:${app.id}`,
     'backstage.io/managed-by-origin-location': `mta-entity-provider:${app.id}`,
   };
 
   if (app.discoveredTags && app.discoveredTags.length > 0) {
-    annotations['mta.konveyor.io/discovered-tags'] = JSON.stringify(app.discoveredTags);
+    annotations['mta.konveyor.io/discovered-tags'] = JSON.stringify(
+      app.discoveredTags,
+    );
   }
 
   if (app.rootPath) {
@@ -66,7 +78,8 @@ function appToEntity(app: MtaApp): ComponentEntity {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
     metadata: {
-      name: sanitizeName(app.name),
+      name: catalogName(app),
+      title: app.name,
       description: `Application managed by MTA — auto-discovered from ${app.repoUrl}`,
       annotations,
       tags,
@@ -74,7 +87,7 @@ function appToEntity(app: MtaApp): ComponentEntity {
     spec: {
       type: 'service',
       lifecycle: 'production',
-      owner: 'user:default/guest',
+      owner: 'group:default/mta-architects',
       system: 'mta-portfolio',
     },
   };

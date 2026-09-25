@@ -30,7 +30,10 @@ function sanitizeName(repoUrl: string): string {
     const url = new URL(repoUrl);
     const parts = url.pathname.replace(/^\/|\/$/g, '').split('/');
     const lastPart = parts[parts.length - 1] || 'application';
-    return lastPart.replace(/\.git$/, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    return lastPart
+      .replace(/\.git$/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-');
   } catch {
     return repoUrl.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
   }
@@ -74,7 +77,9 @@ function registerApplication(
     app.error = 'repo-access-denied';
     app.errorMessage =
       'Repository access denied. The MTA Hub does not have credentials to access this repository. Verify that the repository URL is correct and that the required access tokens have been configured.';
-    logger?.info(`Application ${appName} (${id}) — simulated repo-access-denied error`);
+    logger?.info(
+      `Application ${appName} (${id}) — simulated repo-access-denied error`,
+    );
     return app;
   }
 
@@ -90,13 +95,19 @@ function registerApplication(
         'Technology discovery completed, but the discovered technologies do not match any configured archetype. Discovered tags: ' +
         current.discoveredTags.join(', ') +
         '.';
-      logger?.info(`Application ${appName} (${id}) — simulated no-archetype-match error`);
+      logger?.info(
+        `Application ${appName} (${id}) — simulated no-archetype-match error`,
+      );
     } else {
       current.status = 'discovered';
       current.discoveredTags = [...JAVA_EE_TAGS];
-      logger?.info(`Application ${appName} (${id}) — discovery complete, tags: ${current.discoveredTags.join(', ')}`);
+      logger?.info(
+        `Application ${appName} (${id}) — discovery complete, tags: ${current.discoveredTags.join(
+          ', ',
+        )}`,
+      );
     }
-  }, DISCOVERY_DELAY_MS);
+  }, DISCOVERY_DELAY_MS).unref();
 
   return app;
 }
@@ -175,7 +186,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         annotations,
         tags:
           app.discoveredTags.length > 0
-            ? app.discoveredTags.map(t => t.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
+            ? app.discoveredTags.map(t =>
+                t.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+              )
             : undefined,
       },
       spec: {

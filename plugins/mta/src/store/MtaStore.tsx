@@ -91,7 +91,10 @@ interface MtaStoreValue extends MtaState {
   ) => void;
   getApplicationById: (id: string) => MtaApplication | undefined;
   getApplicationByEntityRef: (entityRef: string) => MtaApplication | undefined;
-  ensureApplication: (entityRef: string, defaults: Omit<MtaApplication, 'id'>) => string;
+  ensureApplication: (
+    entityRef: string,
+    defaults: Omit<MtaApplication, 'id'>,
+  ) => string;
 
   simulateDiscovery: (repoUrl: string) => Promise<string[]>;
   matchArchetypes: (tags: string[]) => Archetype[];
@@ -138,8 +141,14 @@ function loadSessionState() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   return null;
+}
+
+export function readDemoApplications(): MtaApplication[] {
+  return loadSessionState()?.applications ?? initialApplications;
 }
 
 function saveSessionState(
@@ -152,11 +161,29 @@ function saveSessionState(
       SESSION_KEY,
       JSON.stringify({ applications: apps, issues: iss, actionHistory: hist }),
     );
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 export function MtaStoreProvider(props: { children: ReactNode }) {
-  const idCounterRef = useRef(100);
+  const [{ cached, lastId }] = useState(() => {
+    const cached = loadSessionState();
+    let lastId = 100;
+    for (const entries of [
+      cached?.applications,
+      cached?.issues,
+      cached?.actionHistory,
+    ]) {
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        const match = /-(\d+)$/.exec(String(entry.id));
+        if (match) lastId = Math.max(lastId, Number(match[1]));
+      }
+    }
+    return { cached, lastId };
+  });
+  const idCounterRef = useRef(lastId);
   const nextId = useCallback((prefix: string): string => {
     idCounterRef.current += 1;
     return `${prefix}-${idCounterRef.current}`;
@@ -198,7 +225,10 @@ export function MtaStoreProvider(props: { children: ReactNode }) {
             name: entity.metadata.name,
             repoUrl:
               (annotations[MTA_REPO_ANNOTATION] as string) ||
-              (annotations['backstage.io/source-location'] as string)?.replace('url:', '') ||
+              (annotations['backstage.io/source-location'] as string)?.replace(
+                'url:',
+                '',
+              ) ||
               '',
             description: entity.metadata.description,
             type: (entity.spec as Record<string, unknown>)?.type as string,
@@ -217,13 +247,15 @@ export function MtaStoreProvider(props: { children: ReactNode }) {
     };
   }, [catalogApi, identityApi]);
 
-  const cached = useRef(loadSessionState()).current;
-
-  const [applications, setApplications] =
-    useState<MtaApplication[]>(cached?.applications ?? initialApplications);
-  const [issues, setIssues] = useState<MigrationIssue[]>(cached?.issues ?? initialIssues);
-  const [actionHistory, setActionHistory] =
-    useState<ActionHistoryEntry[]>(cached?.actionHistory ?? initialActionHistory);
+  const [applications, setApplications] = useState<MtaApplication[]>(
+    cached?.applications ?? initialApplications,
+  );
+  const [issues, setIssues] = useState<MigrationIssue[]>(
+    cached?.issues ?? initialIssues,
+  );
+  const [actionHistory, setActionHistory] = useState<ActionHistoryEntry[]>(
+    cached?.actionHistory ?? initialActionHistory,
+  );
 
   useEffect(() => {
     saveSessionState(applications, issues, actionHistory);
@@ -269,7 +301,9 @@ export function MtaStoreProvider(props: { children: ReactNode }) {
 
   const ensureApplication = useCallback(
     (entityRef: string, defaults: Omit<MtaApplication, 'id'>): string => {
-      const existing = applicationsRef.current.find(a => a.entityRef === entityRef);
+      const existing = applicationsRef.current.find(
+        a => a.entityRef === entityRef,
+      );
       if (existing) return existing.id;
       return addApplication({ ...defaults, entityRef });
     },
@@ -293,7 +327,9 @@ export function MtaStoreProvider(props: { children: ReactNode }) {
       if (tags.length === 0) return [];
       const normalizedTags = tags.map(t => t.toLowerCase());
       return archetypes.filter(arch =>
-        arch.criteriaTags.every(ct => normalizedTags.includes(ct.toLowerCase())),
+        arch.criteriaTags.every(ct =>
+          normalizedTags.includes(ct.toLowerCase()),
+        ),
       );
     },
     [archetypes],

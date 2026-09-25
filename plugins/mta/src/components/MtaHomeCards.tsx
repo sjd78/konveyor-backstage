@@ -44,17 +44,19 @@ import {
 } from '@backstage/core-components';
 import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { usePersona, useGlobalPhase } from '../prototype';
+import { usePersonaRole } from '../hooks/usePersonaRole';
+import { readDemoApplications } from '../store/MtaStore';
 import {
   MTA_REGISTER_TEMPLATE_PATH,
   DEVELOPER_PHASE_CONFIG,
   DEFAULT_DEVELOPER_PHASE,
 } from '../utils';
 import type { PhaseIconKey, PhaseTone } from '../utils';
-import type { MigrationStatus, Persona } from '../types';
+import type { MigrationStatus, MtaApplication } from '../types';
 
 interface MtaAppInfo {
   name: string;
+  title?: string;
   namespace: string;
   status: MigrationStatus;
   issuesCount: number;
@@ -102,7 +104,10 @@ const useStyles = makeStyles(theme => ({
     marginTop: theme.spacing(0.5),
   },
   criticalChip: {
-    backgroundColor: alpha(theme.palette.error.main, theme.palette.type === 'dark' ? 0.15 : 0.08),
+    backgroundColor: alpha(
+      theme.palette.error.main,
+      theme.palette.type === 'dark' ? 0.15 : 0.08,
+    ),
     color: theme.palette.error.main,
   },
   neutralChip: {
@@ -167,7 +172,10 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const CARD_ICON_MAP: Record<PhaseIconKey, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+const CARD_ICON_MAP: Record<
+  PhaseIconKey,
+  React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+> = {
   hourglass: HourglassEmptyIcon,
   search: SearchIcon,
   swap: SwapHorizIcon,
@@ -177,16 +185,25 @@ const CARD_ICON_MAP: Record<PhaseIconKey, React.ComponentType<{ className?: stri
 
 interface RawEntity {
   name: string;
+  title?: string;
   namespace: string;
   annotations: Record<string, string>;
 }
 
 const MTA_ASSIGNED_DEVELOPER = 'mta.konveyor.io/assigned-developer';
 
-function useMtaEntities(
-  globalPhase: MigrationStatus,
-  persona: Persona,
-): {
+const MIGRATION_STATUSES: readonly string[] = [
+  'Not Started',
+  'Discovery',
+  'Path Selection',
+  'Analysis',
+  'Active',
+  'Post-remediation',
+  'Completed',
+  'Failed',
+];
+
+function useMtaEntities(persona: 'architect' | 'developer'): {
   apps: MtaAppInfo[];
   loading: boolean;
   error: boolean;
@@ -198,58 +215,83 @@ function useMtaEntities(
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    identityApi
-      .getBackstageIdentity()
-      .then(identity => {
-        const filter: Record<string, string | string[]> =
-          persona === 'developer'
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const filter: Record<string, string> =
+          persona === 'architect'
             ? {
                 kind: 'Component',
-                [`metadata.annotations.${MTA_ASSIGNED_DEVELOPER}`]:
-                  identity.userEntityRef,
+                'relations.ownedBy': 'group:default/mta-architects',
               }
             : {
                 kind: 'Component',
-                'relations.ownedBy': identity.ownershipEntityRefs,
+                [`metadata.annotations.${MTA_ASSIGNED_DEVELOPER}`]: (
+                  await identityApi.getBackstageIdentity()
+                ).userEntityRef,
               };
-        return catalogApi.getEntities({
+        const response = await catalogApi.getEntities({
           filter,
           fields: [
             'metadata.name',
+            'metadata.title',
             'metadata.namespace',
             'metadata.annotations',
           ],
         });
-      })
-      .then(response => {
+        if (cancelled) return;
         setRawEntities(
           response.items.map(e => ({
             name: e.metadata.name,
+            title: e.metadata.title,
             namespace: e.metadata.namespace ?? 'default',
-            annotations: (e.metadata.annotations ?? {}) as Record<string, string>,
+            annotations: e.metadata.annotations ?? {},
           })),
         );
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [catalogApi, identityApi, persona]);
 
-  const apps = useMemo(
-    () =>
-      rawEntities.map(e => {
-        const entityStatus =
-          (e.annotations['mta.konveyor.io/status'] as MigrationStatus) ||
-          undefined;
-        return {
-          name: e.name,
-          namespace: e.namespace,
-          status: entityStatus ?? globalPhase,
-          issuesCount: Number(e.annotations['mta.konveyor.io/issues-count'] || 0),
-          criticalIssues: Number(e.annotations['mta.konveyor.io/critical-issues'] || 0),
-        };
-      }),
-    [rawEntities, globalPhase],
-  );
+  const apps = useMemo(() => {
+    const demoByRef = new Map<string, MtaApplication>();
+    for (const app of readDemoApplications()) {
+      if (app.entityRef) demoByRef.set(app.entityRef, app);
+    }
+    return rawEntities.map(e => {
+      const demo = demoByRef.get(`component:${e.namespace}/${e.name}`);
+      const annotation = e.annotations['mta.konveyor.io/status'];
+      let status: MigrationStatus = 'Not Started';
+      if (annotation === 'registering') status = 'Discovery';
+      else if (annotation === 'discovered') status = 'Path Selection';
+      else if (annotation === 'failed') status = 'Failed';
+      else if (annotation && MIGRATION_STATUSES.includes(annotation)) {
+        status = annotation as MigrationStatus;
+      }
+      const mockId = e.annotations['konveyor.io/application-id'];
+      const demoIsPending =
+        demo?.status === 'Not Started' || demo?.status === 'Discovery';
+      return {
+        name: e.name,
+        title: e.title,
+        namespace: e.namespace,
+        status: demo && (!mockId || !demoIsPending) ? demo.status : status,
+        issuesCount:
+          demo?.issuesCount ??
+          Number(e.annotations['mta.konveyor.io/issues-count'] || 0),
+        criticalIssues:
+          demo?.criticalIssues ??
+          Number(e.annotations['mta.konveyor.io/critical-issues'] || 0),
+      };
+    });
+  }, [rawEntities]);
 
   return { apps, loading, error };
 }
@@ -261,11 +303,7 @@ function SkeletonRows({ count }: { count: number }) {
         <ListItem key={i}>
           <ListItemText
             primary={
-              <Skeleton
-                variant="rect"
-                height={14}
-                width={`${55 + i * 15}%`}
-              />
+              <Skeleton variant="rect" height={14} width={`${55 + i * 15}%`} />
             }
             secondary={
               <Box display="flex" alignItems="center" gridGap={6} mt={0.75}>
@@ -294,14 +332,12 @@ function AppRow({ app }: { app: MtaAppInfo }) {
       button
       className={classes.appRow}
       onClick={() =>
-        navigate(
-          `/catalog/${app.namespace}/component/${app.name}/migration`,
-        )
+        navigate(`/catalog/${app.namespace}/component/${app.name}/migration`)
       }
       aria-label={`Open ${app.name} migration tab`}
     >
       <ListItemText
-        primary={app.name}
+        primary={app.title ?? app.name}
         primaryTypographyProps={{
           variant: 'body2',
           style: { fontWeight: 600 },
@@ -330,19 +366,14 @@ function AppRow({ app }: { app: MtaAppInfo }) {
         }
         secondaryTypographyProps={{ component: 'div' }}
       />
-      <ArrowForwardIcon
-        fontSize="small"
-        color="action"
-        aria-hidden="true"
-      />
+      <ArrowForwardIcon fontSize="small" color="action" aria-hidden="true" />
     </ListItem>
   );
 }
 
 function ArchitectCardContent() {
   const classes = useStyles();
-  const globalPhase = useGlobalPhase();
-  const { apps, loading, error } = useMtaEntities(globalPhase, 'architect');
+  const { apps, loading, error } = useMtaEntities('architect');
 
   if (loading) {
     return (
@@ -393,13 +424,15 @@ function ArchitectCardContent() {
   return (
     <InfoCard
       title="Migration Toolkit for Applications"
-      subheader={`${apps.length} application${apps.length !== 1 ? 's' : ''} registered`}
+      subheader={`${apps.length} application${
+        apps.length !== 1 ? 's' : ''
+      } registered`}
       className={classes.cardPinnedFooter}
     >
       <Box className={classes.scrollList}>
         <List dense disablePadding>
           {apps.map((app, i) => (
-            <Box key={app.name}>
+            <Box key={`${app.namespace}/${app.name}`}>
               {i > 0 && <Divider />}
               <AppRow app={app} />
             </Box>
@@ -427,7 +460,7 @@ function useToneColors(tone: PhaseTone) {
       fg: theme.palette.text.disabled,
     },
     active: {
-      bg: alpha(theme.palette.info.main, isDark ? 0.10 : 0.06),
+      bg: alpha(theme.palette.info.main, isDark ? 0.1 : 0.06),
       fg: theme.palette.info.main,
     },
     warning: {
@@ -446,19 +479,17 @@ function DeveloperStatusMessage({ status }: { status: string }) {
 
   return (
     <Box className={classes.devStatusRoot}>
-      <Box
-        className={classes.devIconRing}
-        style={{ backgroundColor: tone.bg }}
-      >
-        <Icon
-          className={classes.devIcon}
-          style={{ color: tone.fg }}
-        />
+      <Box className={classes.devIconRing} style={{ backgroundColor: tone.bg }}>
+        <Icon className={classes.devIcon} style={{ color: tone.fg }} />
       </Box>
       <Typography variant="body2" className={classes.devTitle}>
         {msg.title}
       </Typography>
-      <Typography variant="caption" color="textSecondary" className={classes.devDescription}>
+      <Typography
+        variant="caption"
+        color="textSecondary"
+        className={classes.devDescription}
+      >
         {msg.description}
       </Typography>
     </Box>
@@ -467,8 +498,7 @@ function DeveloperStatusMessage({ status }: { status: string }) {
 
 function DeveloperCardContent() {
   const classes = useStyles();
-  const globalPhase = useGlobalPhase();
-  const { apps, loading, error } = useMtaEntities(globalPhase, 'developer');
+  const { apps, loading, error } = useMtaEntities('developer');
 
   if (loading) {
     return (
@@ -492,51 +522,48 @@ function DeveloperCardContent() {
     );
   }
 
-  const activeApp = apps.find(
-    a => a.status === 'Active' || a.status === 'Post-remediation',
-  );
-  if (activeApp) {
+  if (apps.length === 0) {
     return (
-      <InfoCard title="Your Migration">
-        <List dense disablePadding>
-          <AppRow app={activeApp} />
-        </List>
+      <InfoCard title="Your Migration" className={classes.cardCentered}>
+        <DeveloperStatusMessage status="Not Started" />
       </InfoCard>
     );
   }
-
-  const completedApp = apps.find(a => a.status === 'Completed');
-  if (completedApp) {
-    return (
-      <InfoCard title="Your Migration">
-        <List dense disablePadding>
-          <AppRow app={completedApp} />
-        </List>
-      </InfoCard>
-    );
-  }
-
-  const relevantApp = apps.find(
-    a =>
-      a.status === 'Failed' ||
-      a.status === 'Analysis' ||
-      a.status === 'Path Selection' ||
-      a.status === 'Discovery',
-  );
 
   return (
-    <InfoCard title="Your Migration" className={classes.cardCentered}>
-      <DeveloperStatusMessage status={relevantApp?.status ?? 'Not Started'} />
+    <InfoCard
+      title="Your Migration"
+      subheader={`${apps.length} assigned application${
+        apps.length !== 1 ? 's' : ''
+      }`}
+      className={classes.cardPinnedFooter}
+    >
+      <Box className={classes.scrollList}>
+        <List dense disablePadding>
+          {apps.map((app, index) => (
+            <React.Fragment key={`${app.namespace}/${app.name}`}>
+              {index > 0 && <Divider />}
+              <AppRow app={app} />
+            </React.Fragment>
+          ))}
+        </List>
+      </Box>
     </InfoCard>
   );
 }
 
 function HomeCardContent() {
-  const persona = usePersona();
-  return persona === 'architect' ? (
-    <ArchitectCardContent />
-  ) : (
-    <DeveloperCardContent />
+  const persona = usePersonaRole();
+  if (persona === 'architect') return <ArchitectCardContent />;
+  if (persona === 'developer') return <DeveloperCardContent />;
+  return (
+    <InfoCard title="Migration Toolkit for Applications">
+      <EmptyState
+        title="Migration access unavailable"
+        description="Your account is not assigned a migration role. Contact your administrator for access."
+        missing="content"
+      />
+    </InfoCard>
   );
 }
 

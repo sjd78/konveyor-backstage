@@ -23,10 +23,7 @@ import { EntityContentBlueprint } from '@backstage/plugin-catalog-react/alpha';
 import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
 import { MigrationTabPage } from './components/MigrationTabPage';
 import { MtaHomeSection } from './components/MtaHomeCards';
-import { mountGlobalScopeBar } from './prototype/PrototypeScopeSwitcher';
 import { rootRouteRef } from './routes';
-
-mountGlobalScopeBar();
 
 const mtaEntityContent = EntityContentBlueprint.makeWithOverrides({
   name: 'migration',
@@ -45,7 +42,8 @@ const mtaHomeWidget = HomePageWidgetBlueprint.make({
   params: {
     name: 'MtaHomeSection',
     title: 'Migration',
-    description: 'Migration Toolkit for Applications status and recommendations',
+    description:
+      'Migration Toolkit for Applications status and recommendations',
     components: async () => ({
       Content: () => <MtaHomeSection />,
     }),

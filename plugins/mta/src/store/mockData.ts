@@ -307,8 +307,7 @@ export const initialArchetypes: Archetype[] = [
   {
     id: 'arch-1',
     name: 'Legacy Java EE',
-    description:
-      'Traditional Java EE application with JPA and JSON-P APIs',
+    description: 'Traditional Java EE application with JPA and JSON-P APIs',
     criteriaTags: ['JPA entities', 'Java EE JSON-P'],
     icon: 'StorageIcon',
   },
@@ -347,10 +346,7 @@ export const initialApplications: MtaApplication[] = [
     id: 'app-1',
     name: 'inventory-service',
     repoUrl: 'https://github.com/konveyor-ecosystem/inventory-service',
-    discoveredTags: [
-      'JPA entities',
-      'Java EE JSON-P',
-    ],
+    discoveredTags: ['JPA entities', 'Java EE JSON-P'],
     archetypeId: 'arch-1',
     targetProfileId: 'target-1',
     status: 'Active',
@@ -369,10 +365,7 @@ export const initialApplications: MtaApplication[] = [
     id: 'app-2',
     name: 'order-management',
     repoUrl: 'https://github.com/konveyor-ecosystem/order-management',
-    discoveredTags: [
-      'JPA entities',
-      'Java EE JSON-P',
-    ],
+    discoveredTags: ['JPA entities', 'Java EE JSON-P'],
     archetypeId: 'arch-1',
     targetProfileId: 'target-2',
     status: 'Analysis',
@@ -412,11 +405,7 @@ export const initialApplications: MtaApplication[] = [
     id: 'app-4',
     name: 'notification-hub',
     repoUrl: 'https://github.com/konveyor-ecosystem/notification-hub',
-    discoveredTags: [
-      'JPA entities',
-      'Java EE JSON-P',
-      'JBoss EAP 7',
-    ],
+    discoveredTags: ['JPA entities', 'Java EE JSON-P', 'JBoss EAP 7'],
     archetypeId: 'arch-1',
     targetProfileId: 'target-2',
     status: 'Completed',
@@ -432,10 +421,7 @@ export const initialApplications: MtaApplication[] = [
     id: 'app-5',
     name: 'data-pipeline',
     repoUrl: 'https://github.com/konveyor-ecosystem/data-pipeline',
-    discoveredTags: [
-      'JPA entities',
-      'Java EE JSON-P',
-    ],
+    discoveredTags: ['JPA entities', 'Java EE JSON-P'],
     archetypeId: 'arch-1',
     targetProfileId: 'target-1',
     status: 'Not Started',
@@ -635,6 +621,7 @@ export const initialIssues: MigrationIssue[] = [
     file: 'src/main/java/com/app/messaging/NotificationSender.java',
     line: 22,
     aiFixAvailable: true,
+    resolved: true,
   },
   {
     id: 'issue-14',
@@ -657,6 +644,7 @@ export const initialIssues: MigrationIssue[] = [
     file: 'src/main/java/com/app/messaging/OrderListener.java',
     line: 8,
     aiFixAvailable: true,
+    resolved: true,
   },
   {
     id: 'issue-16',
@@ -737,10 +725,7 @@ export const initialActionHistory: ActionHistoryEntry[] = [
 // Discovery tag sets
 // ---------------------------------------------------------------------------
 
-const javaEeTags = [
-  'JPA entities',
-  'Java EE JSON-P',
-];
+const javaEeTags = ['JPA entities', 'Java EE JSON-P'];
 
 export function tagsForUrl(_repoUrl: string): string[] {
   return javaEeTags;

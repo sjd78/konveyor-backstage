@@ -9,23 +9,25 @@ import RadioGroup from '@material-ui/core/RadioGroup';
 import Typography from '@material-ui/core/Typography';
 import { alpha, useTheme } from '@material-ui/core/styles';
 import { InfoCard } from '@backstage/core-components';
-import { advancePhase } from '../../prototype';
+import { ACTION_TIMEOUT_MS } from '../../utils';
 import { useMtaStore } from '../../store/MtaStore';
 import type { MtaApplication } from '../../types';
 
 export function PhasePathSelection({
   app,
   store,
-  entityRef,
 }: {
   app: MtaApplication;
   store: ReturnType<typeof useMtaStore>;
-  entityRef: string;
 }) {
   const theme = useTheme();
   const archetype = store.getArchetypeById(app.archetypeId);
-  const allTargets = archetype ? store.getTargetsForArchetype(archetype.id) : [];
-  const [selectedTargetId, setSelectedTargetId] = useState(app.targetProfileId || '');
+  const allTargets = archetype
+    ? store.getTargetsForArchetype(archetype.id)
+    : [];
+  const [selectedTargetId, setSelectedTargetId] = useState(
+    app.targetProfileId || '',
+  );
 
   const handleStartAnalysis = () => {
     if (!selectedTargetId) return;
@@ -34,7 +36,11 @@ export function PhasePathSelection({
       status: 'Analysis',
       devSpacesAvailable: true,
     });
-    advancePhase(entityRef, 'Analysis');
+    // Let the analysis phase render before the mock action publishes its results.
+    setTimeout(
+      () => store.executeAction(app.id, 'run-analysis', 'architect'),
+      ACTION_TIMEOUT_MS,
+    );
   };
 
   return (
@@ -42,19 +48,35 @@ export function PhasePathSelection({
       <InfoCard title="Technologies discovered">
         <Box mb={2}>
           {(app.discoveredTags ?? []).map(tag => (
-            <Chip key={tag} label={tag} size="small" style={{ marginRight: 4, marginBottom: 4 }} />
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              style={{ marginRight: 4, marginBottom: 4 }}
+            />
           ))}
         </Box>
         {archetype && (
           <Box mb={3}>
-            <Typography variant="subtitle2" gutterBottom>Matched archetype</Typography>
-            <Typography variant="body1" style={{ fontWeight: 600 }}>{archetype.name}</Typography>
-            <Typography variant="body2" color="textSecondary">{archetype.description}</Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Matched archetype
+            </Typography>
+            <Typography variant="body1" style={{ fontWeight: 600 }}>
+              {archetype.name}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {archetype.description}
+            </Typography>
           </Box>
         )}
         <Box mb={2}>
-          <Typography variant="subtitle2" gutterBottom>Available migration paths</Typography>
-          <RadioGroup value={selectedTargetId} onChange={e => setSelectedTargetId(e.target.value)}>
+          <Typography variant="subtitle2" gutterBottom>
+            Available migration paths
+          </Typography>
+          <RadioGroup
+            value={selectedTargetId}
+            onChange={e => setSelectedTargetId(e.target.value)}
+          >
             {allTargets.map(target => (
               <Paper
                 key={target.id}
@@ -63,8 +85,14 @@ export function PhasePathSelection({
                   padding: 12,
                   marginBottom: 8,
                   cursor: 'pointer',
-                  borderColor: selectedTargetId === target.id ? theme.palette.primary.main : undefined,
-                  backgroundColor: selectedTargetId === target.id ? alpha(theme.palette.primary.main, 0.04) : undefined,
+                  borderColor:
+                    selectedTargetId === target.id
+                      ? theme.palette.primary.main
+                      : undefined,
+                  backgroundColor:
+                    selectedTargetId === target.id
+                      ? alpha(theme.palette.primary.main, 0.04)
+                      : undefined,
                 }}
                 onClick={() => setSelectedTargetId(target.id)}
               >
@@ -73,8 +101,12 @@ export function PhasePathSelection({
                   control={<Radio color="primary" />}
                   label={
                     <Box>
-                      <Typography variant="body1" style={{ fontWeight: 600 }}>{target.name}</Typography>
-                      <Typography variant="body2" color="textSecondary">{target.description}</Typography>
+                      <Typography variant="body1" style={{ fontWeight: 600 }}>
+                        {target.name}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {target.description}
+                      </Typography>
                     </Box>
                   }
                   style={{ margin: 0, width: '100%' }}
@@ -84,7 +116,12 @@ export function PhasePathSelection({
           </RadioGroup>
         </Box>
         <Box display="flex" justifyContent="flex-end" mt={2}>
-          <Button variant="contained" color="primary" disabled={!selectedTargetId} onClick={handleStartAnalysis}>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!selectedTargetId}
+            onClick={handleStartAnalysis}
+          >
             Start analysis
           </Button>
         </Box>

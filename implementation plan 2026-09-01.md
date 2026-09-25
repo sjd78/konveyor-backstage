@@ -1,5 +1,5 @@
 # Implementation Plan: Hooking MTA Plugins to a Live MTA Hub Instance
-**Date:** 2026-09-23 (Updated from 2026-09-01)
+**Date:** 2026-09-24 (Updated from 2026-09-01)
 **Base Repository:** `static-backstage` (Static Backstage Monorepo)
 **Target Hub API Reference:** [`konveyor/tackle2-hub`](https://github.com/konveyor/tackle2-hub)
 **Target RHDH Runtime:** Red Hat Developer Hub (Dynamic Plugins via Scalprum / Janus IDP)
@@ -13,14 +13,14 @@ This document details the architectural and implementation plan to transition th
 
 The plan is structured as **six phased Jira stories** under epic **MTA-7629**, each with trackable tasks. The progression is deliberately layered:
 
-1. **Phase 1:** Strip the demo harness (prototype switcher, mock store, mock hub) and set up dev users and data for persona-based user stories.
-2. **Phase 2 ([MTA-7475](https://issues.redhat.com/browse/MTA-7475)):** Wire the clean plugin to a real Hub backend (no auth) and refactor components for live data.
+1. **Phase 1:** Remove the visible prototype switcher and global phase/persona overrides; keep the demo store and mock Hub working while setting up catalog-backed persona stories.
+2. **Phase 2 ([MTA-7475](https://issues.redhat.com/browse/MTA-7475)):** Replace the frontend demo store with real Hub data (no auth) and refactor components for live data.
 3. **Phase 3:** Layer on user-delegated OIDC authentication once the data path is proven.
 4. **Phases 4–6:** Integrate scaffolder/catalog with the live Hub, export as dynamic plugins for RHDH, and run end-to-end cutover.
 
 The architecture addresses three core requirements:
 1. **User-Delegated Authentication (OIDC / OAuth2):** All user-initiated mutations and reads strictly forward the individual user's OIDC bearer token directly through to the MTA Hub. There is **no platform service account** for user actions, preserving Tackle2 RBAC and user-level audit trails. *(Introduced in Phase 3.)*
-2. **Modern Data Fetching & Reactive State:** Retiring the prototype's in-memory mock store and artificial delays in favor of a request-scoped backend proxy (`mta-backend`), a dedicated frontend API client (`MtaApiClient`), and reactive React hooks for live analysis task polling and issue tracking. *(Phase 1 removes the demo layer; Phase 2 builds the live replacement.)*
+2. **Modern Data Fetching & Reactive State:** Phase 1 retains the in-memory demo store and mock Hub so registration and remediation stories remain runnable without the visible harness. Phase 2 replaces frontend demo state with a request-scoped backend proxy (`mta-backend`), `MtaApiClient`, and reactive hooks. The mock Hub remains for its scaffolder/catalog consumers until their Phase 4 cutover.
 3. **Dual-Target Build Chain (Static Base → RHDH Dynamic Plugins):** Using the current `static-backstage` monorepo as the **Single Source of Truth (SSOT)**. The static plugins serve as the base for development and testing, while a dynamic plugin export step packages them into Scalprum-compatible dynamic plugins for deployment in Red Hat Developer Hub (RHDH). *(Phase 5.)*
 
 ---
@@ -33,13 +33,13 @@ The architecture addresses three core requirements:
 |---|---|---|---|
 | **Frontend Plugin** | `plugins/mta` | `@internal/backstage-plugin-mta` | Modified (Phases 1–3) |
 | **Backend Plugin (Proxy)** | `plugins/mta-backend` | `@internal/backstage-plugin-mta-backend` | Modified (Phases 2–3) |
-| **Mock Hub Backend** | `plugins/mta-mock-hub-backend` | `@internal/backstage-plugin-mta-mock-hub-backend` | **Deleted** (Phase 1) |
+| **Mock Hub Backend** | `plugins/mta-mock-hub-backend` | `@internal/backstage-plugin-mta-mock-hub-backend` | Retained for demos through Phase 3; deleted after Phase 4 cutover |
 | **Catalog Entity Provider** | `plugins/catalog-backend-module-mta-entity-provider` | `@internal/backstage-plugin-catalog-backend-module-mta-entity-provider` | Modified (Phases 3–4) |
 | **Scaffolder Actions Module** | `plugins/scaffolder-backend-module-mta-actions` | `@internal/backstage-plugin-scaffolder-backend-module-mta-actions` | Modified (Phases 3–4) |
 
-### What Exists Today (Prototype State)
+### Before Phase 1 (Prototype State)
 
-The current plugin is a **self-contained demo** with no external dependencies:
+Before Phase 1, the plugin was a **self-contained demo** with no external Hub dependency:
 
 - **`MtaStore.tsx`** — In-memory React context store with 5 hardcoded applications, mock archetypes, mock target profiles, mock issues, and mock action history. State persists via `sessionStorage`.
 - **`mockData.ts`** — ~840 lines of hardcoded issue templates (Java EE, Spring, Node.js), deployment asset previews, DevSpaces config, and initial application data.
@@ -49,10 +49,10 @@ The current plugin is a **self-contained demo** with no external dependencies:
   - `prototypePersona.ts` — Architect/developer persona toggle via `localStorage`.
   - `prototypePhaseState.ts` — Global phase, per-entity phase overrides, and generation counter for the scope switcher.
 - **`plugins/mta-mock-hub-backend`** — Standalone backend plugin simulating Hub registration, discovery (20s delay), and entity YAML generation.
-- **`DISCOVERY_DELAY_MS` (20s)** — Artificial delay in `utils.ts` simulating Hub discovery.
+- **`DISCOVERY_DELAY_MS`** — 3s frontend demo discovery delay in `utils.ts`; the mock Hub independently waits 20s before reporting discovery.
 - **`ACTION_TIMEOUT_MS`** — Artificial delay for mock action execution.
 
-All of the above will be removed in Phase 1.
+Phase 1 removes only the prototype switcher and its `localStorage` overrides. The demo store, data, simulated delays, and mock Hub remain until the live replacement covers their consumers (frontend in Phase 2; scaffolder/catalog in Phase 4).
 
 ---
 
@@ -538,7 +538,7 @@ export function useMtaAnalysis(apiClient: MtaApiClient, taskId?: number) {
 
 #### Phase State Machine: Hub Data → Display State
 
-With the prototype harness removed (Phase 2), the `MigrationTab` component derives its display phase from live Tackle2 Hub data:
+Once Phase 2 replaces the retained frontend demo store, `MigrationTab` will derive its display phase from live Tackle2 Hub data:
 
 | Display Phase | Hub Condition |
 |---|---|
@@ -553,38 +553,9 @@ With the prototype harness removed (Phase 2), the `MigrationTab` component deriv
 
 #### Persona Resolution: Catalog Group Membership (Phase 1)
 
-```typescript
-// plugins/mta/src/hooks/usePersonaRole.ts
-import { useApi, identityApiRef } from '@backstage/core-plugin-api';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { useEffect, useState } from 'react';
+`plugins/mta/src/hooks/usePersonaRole.ts` derives the view from `identityApiRef.getBackstageIdentity().ownershipEntityRefs`. Exact membership in `group:default/mta-architects` selects the architect view; otherwise exact membership in `group:default/mta-developers` selects the developer view. Missing or failed identity resolution returns `unknown` with no architect controls. This is a UI persona selector, not an authorization policy.
 
-export type PersonaRole = 'architect' | 'developer' | 'unknown';
-
-export function usePersonaRole(): PersonaRole {
-  const identityApi = useApi(identityApiRef);
-  const catalogApi = useApi(catalogApiRef);
-  const [role, setRole] = useState<PersonaRole>('unknown');
-
-  useEffect(() => {
-    let cancelled = false;
-    identityApi.getBackstageIdentity().then(identity => {
-      if (cancelled) return;
-      const refs = identity.ownershipEntityRefs;
-      if (refs.some(r => r.includes('mta-architects'))) {
-        setRole('architect');
-      } else if (refs.some(r => r.includes('mta-developers'))) {
-        setRole('developer');
-      } else {
-        setRole('developer'); // Default to developer view
-      }
-    }).catch(() => setRole('unknown'));
-    return () => { cancelled = true; };
-  }, [identityApi, catalogApi]);
-
-  return role;
-}
-```
+For local development, `app-config.yaml` selects `user:default/sarah-architect` as the guest identity. Restart with `APP_CONFIG_auth_providers_guest_userEntityRef=user:default/dev-chen` to view the developer persona; the guest provider does not expose an in-app user picker.
 
 ---
 
@@ -709,23 +680,23 @@ plugins:
 
 Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the story description as sub-tasks.
 
-### Phase 1 — Demo Harness Removal & Dev Data Setup
+### Phase 1 — Prototype Controls Removal & Persona Demo Setup
 
 **Story ([MTA-7937](https://issues.redhat.com/browse/MTA-7937)):** *MTA RHDH Plugin: Remove prototype scaffolding and set up persona-based dev environment*
 
-**Summary:** Strip the prototype infrastructure (scope switcher, mock store, mock hub backend, simulated delays). Set up Backstage catalog users and component entities for each persona in the user stories. After this phase, the codebase is clean of demo scaffolding and ready for live Hub wiring in Phase 2. Components are left in a compilable state with stubs/empty states where they previously consumed mock data.
+**Summary:** Remove the visible scope/persona/phase switcher and drive the demo through per-application actions instead. Retain `MtaStore`, `mockData`, simulated delays, mock Hub backend, catalog provider, scaffolder action, and registration template so the stories remain runnable. Seed catalog users, groups, ownership, and assignments for architect and developer views.
 
 **Dependency:** None.
 
-**Acceptance / Gate:** `yarn tsc` passes; prototype scope bar is gone; `mta-mock-hub-backend` plugin deleted; `MtaStore`/`mockData` deleted; persona users and groups exist in catalog; app compiles cleanly.
+**Acceptance / Gate:** `yarn tsc`, plugin tests, and backend/app build pass; no prototype scope bar or global overrides remain. An architect can discover, analyze, remediate, and complete a demo migration; registration through the mock Hub produces a distinct catalog entity and supports discovery/failure; a developer sees assigned applications and can apply quick fixes. The mock backend and demo store remain intentionally active.
 
 | Task | Title | Description | Scope (files) | Type |
 |---|---|---|---|---|
-| 1.1 | Remove prototype scope switcher and phase state harness | Delete the entire `plugins/mta/src/prototype/` directory (`PrototypeScopeSwitcher.tsx`, `prototypeScope.ts`, `prototypePersona.ts`, `prototypePhaseState.ts`, `index.ts`). Remove `mountGlobalScopeBar()` call from `alpha.tsx`. Remove all imports of `usePrototypeScope`, `usePersona`, `useGlobalPhase`, `resolveEntityPhase`, `advancePhase` from `MigrationTab.tsx` and other components. Remove `PROTOTYPE_SCOPE_BAR_HEIGHT` offset CSS injection. | `plugins/mta/src/prototype/*`<br>`plugins/mta/src/alpha.tsx`<br>`plugins/mta/src/components/MigrationTab.tsx` | remove |
-| 1.2 | Remove in-memory MtaStore, mockData, and simulated delays | Delete `MtaStore.tsx` and `mockData.ts`. Remove `MtaStoreProvider` from component tree. Remove `useMtaStore()` usage from `MigrationTab.tsx` and all phase components. Remove `DISCOVERY_DELAY_MS`, `ACTION_TIMEOUT_MS` from `utils.ts`. Remove `sessionStorage` persistence. Replace with temporary stubs so components compile. | `plugins/mta/src/store/*`<br>`plugins/mta/src/utils.ts`<br>`plugins/mta/src/components/**` | remove |
-| 1.3 | Remove mta-mock-hub-backend plugin | Delete `plugins/mta-mock-hub-backend/` entirely. Remove `backend.add(import('@internal/backstage-plugin-mta-mock-hub-backend'))` from `packages/backend/src/index.ts`. Remove from root `package.json` workspaces if listed. | `plugins/mta-mock-hub-backend/*`<br>`packages/backend/src/index.ts` | remove |
-| 1.4 | Set up dev catalog users and groups for personas | Expand `mta-users.yaml` with named persona users: an Application Architect (e.g., `user:default/sarah-architect`) who owns the migration portfolio, and a Corporate Developer (e.g., `user:default/dev-chen`) assigned to remediate specific apps. Create groups: `mta-architects`, `mta-developers`. Assign component ownership so each persona sees the right catalog entities. The Backstage guest provider allows selecting which user to impersonate during development. | `examples/mta-users.yaml`<br>`examples/mta-components.yaml` | modify |
-| 1.5 | Replace prototype persona toggle with catalog group membership checks | Create `usePersonaRole()` hook that derives the user's role from their Backstage identity group membership (`mta-architects` vs `mta-developers`) instead of the `localStorage` persona toggle. Architects see the full migration portfolio and analysis controls. Developers see only their assigned components with remediation-focused views. | `plugins/mta/src/hooks/usePersonaRole.ts`<br>`plugins/mta/src/components/MigrationTab.tsx` | new |
+| 1.1 | Remove prototype scope switcher and phase state harness | Delete `plugins/mta/src/prototype/`, remove its mount from `alpha.tsx`, and remove all scope/persona/global-phase imports and overrides. Keep application state transitions in the store rather than global `localStorage` overrides. | `plugins/mta/src/prototype/*`<br>`plugins/mta/src/alpha.tsx`<br>`plugins/mta/src/components/*` | remove |
+| 1.2 | Preserve runnable demo transitions | Keep `MtaStore.tsx`, `mockData.ts`, and demo delays. Advance seed applications through discovery, analysis, issues, remediation, and completion via normal UI actions; poll mock-registered applications for discovery/failure. Home cards show per-application status, including local demo transitions. | `plugins/mta/src/store/*`<br>`plugins/mta/src/components/**` | modify |
+| 1.3 | Retain the mock Hub and its registration consumers | Keep `mta-mock-hub-backend`, the catalog provider, scaffolder action, and template wired together. Give generated entities stable ID-suffixed names to avoid colliding with seeded components; keep template links aligned to those names and map mock status/errors into catalog annotations. Retire this backend only after the Phase 4 consumer cutover. | `plugins/mta-mock-hub-backend/*`<br>`plugins/catalog-backend-module-mta-entity-provider/src/module.ts`<br>`plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`examples/mta-template/template.yaml` | retain/modify |
+| 1.4 | Set up dev catalog users and groups for personas | Add `user:default/sarah-architect` and `user:default/dev-chen` in `mta-architects` and `mta-developers`. Assign the portfolio to the architect group and selected applications to the developer. Configure the development guest user's `userEntityRef` per run; the guest provider has no in-app account picker. | `examples/mta-users.yaml`<br>`examples/mta-components.yaml`<br>`app-config.yaml` | modify |
+| 1.5 | Replace persona toggle with catalog group membership checks | Use exact Backstage identity ownership group refs in `usePersonaRole()`. Architects see the portfolio and analysis controls; developers see assigned components and remediation actions; unknown roles get no architect controls. Scope-gated demo sections become state/persona-driven. These UI views do not enforce RBAC. | `plugins/mta/src/hooks/usePersonaRole.ts`<br>`plugins/mta/src/components/MigrationTab.tsx`<br>`plugins/mta/src/components/MtaHomeCards.tsx`<br>`plugins/mta/src/components/phases/*` | modify |
 
 ---
 
@@ -733,7 +704,7 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 
 **Story ([MTA-7475](https://issues.redhat.com/browse/MTA-7475)):** *MTA RHDH Plugin: Wire static plugin to Konveyor Hub backend (unauthenticated)*
 
-**Summary:** Build the real data layer on the clean codebase from Phase 1. Prove the full data path from UI through backend proxy to a real Tackle2 Hub instance. All requests are unauthenticated — the Hub must be configured with auth disabled or anonymous read access for this dev phase. Refactor frontend components to consume live Hub data. Align catalog component entities with Hub application inventory.
+**Summary:** Replace the retained frontend demo state with the real data layer. Prove the full data path from UI through backend proxy to a real Tackle2 Hub instance. All requests are unauthenticated — the Hub must be configured with auth disabled or anonymous read access for this dev phase. Align catalog component entities with Hub application inventory. The mock Hub continues serving the separate scaffolder/catalog demo consumers until Phase 4.
 
 **Dependency:** Phase 1 (prototype scaffolding must be removed first).
 
@@ -747,7 +718,7 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 | 2.4 | Add `MTA_HUB_BASE_URL` to app-config | Add `mta.baseUrl` config key and read it in the backend plugin. Defaults to `process.env.MTA_HUB_BASE_URL` or `http://localhost:8080`. Create `.env.example` documenting the env var. | `app-config.yaml`<br>`app-config.local.yaml`<br>`plugins/mta-backend/src/plugin.ts` | modify |
 | 2.5 | Implement MtaApiClient frontend service (no auth) | Frontend API client class using `DiscoveryApi` to resolve `mta-backend` base URL. Calls the backend proxy endpoints. No auth API involved — no Bearer token attached. Registered via `createApiFactory`. | `plugins/mta/src/api/MtaApiClient.ts`<br>`plugins/mta/src/api/index.ts` | new |
 | 2.6 | Implement useMtaAnalysis reactive polling hook | React hook that polls `GET /tasks/:id` at 3s intervals while task state is `Created`, `Pending`, or `Running`. Stops polling on `Succeeded` or `Failed`. Returns `{ task, loading, error, refetch }`. | `plugins/mta/src/hooks/useMtaAnalysis.ts` | new |
-| 2.7 | Refactor MigrationTab and phase components for live API | Rewrite `MigrationTab` to derive phase state from Tackle2 Hub data instead of the Phase 1 stubs (see Phase State Machine table in §5.2). Each phase component receives live data from hooks and `MtaApiClient`. | `plugins/mta/src/components/MigrationTab.tsx`<br>`plugins/mta/src/components/phases/*` | modify |
+| 2.7 | Refactor MigrationTab and phase components for live API | Replace `MtaStore`/`mockData` and demo delays with phase state derived from Tackle2 Hub data (see Phase State Machine table in §5.2). Each phase component receives live data from hooks and `MtaApiClient`; remove the mock-Hub frontend polling once the live path works. | `plugins/mta/src/store/*`<br>`plugins/mta/src/components/MigrationTab.tsx`<br>`plugins/mta/src/components/phases/*` | modify/remove |
 | 2.8 | Align catalog component entities with Hub application inventory | Update `mta-components.yaml` so Component entities correspond to applications registered in the dev Konveyor Hub instance. Each component gets a `konveyor.io/application-id` annotation matching the Hub's application ID. This enables `MigrationTab` to look up the Hub application from the entity annotation. | `examples/mta-components.yaml` | modify |
 
 > **Prerequisite for Phase 2:** Ensure the dev Konveyor Hub instance has seed data: applications (inventory-service, order-management, customer-portal, notification-hub, data-pipeline), archetypes, and target profiles matching the user stories.
@@ -789,6 +760,8 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 |---|---|---|---|---|
 | 4.1 | Update scaffolder action to POST to live Tackle2 Hub | Update the custom scaffolder action to call `POST /hub/applications` on the real Hub. Output `applicationId`, `applicationName`, `entityRef`. Update the template YAML to pass necessary parameters. | `plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`examples/mta-template/template.yaml` | modify |
 | 4.2 | Implement catalog entity provider to sync from Tackle2 Hub | `MtaEntityProvider` polls Hub for applications and emits `{ type: 'full', entities }` mutations. Entities get `konveyor.io/application-id`, `mta.konveyor.io/repo-url`, and `backstage.io/source-location` annotations. Status labels update as applications transition states in Hub. | `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify |
+
+> **Mock Hub cutover:** Once both the scaffolder action and catalog provider use the live Hub, remove `plugins/mta-mock-hub-backend/`, its `backend.add()` registration and backend package dependency, then update the lockfile. Do not remove it while either demo consumer still calls it.
 
 ---
 
@@ -835,17 +808,19 @@ Every file created, modified, or deleted across all phases:
 | File | Action | Phase | Notes |
 |---|---|---|---|
 | `plugins/mta/src/prototype/` *(directory)* | **delete** | 1 | Entire prototype directory |
-| `plugins/mta/src/store/MtaStore.tsx` | **delete** | 1 | In-memory mock store |
-| `plugins/mta/src/store/mockData.ts` | **delete** | 1 | Hardcoded demo data |
-| `plugins/mta-mock-hub-backend/` *(plugin)* | **delete** | 1 | Entire mock hub plugin |
+| `plugins/mta/src/store/MtaStore.tsx` | modify, then delete | 1, 2 | Demo state retained in Phase 1; replaced by live data in Phase 2 |
+| `plugins/mta/src/store/mockData.ts` | modify, then delete | 1, 2 | Demo fixtures retained through Phase 1 |
+| `plugins/mta-mock-hub-backend/` *(plugin)* | **delete** | 4 | Remove after both backend consumers use live Hub |
 | `plugins/mta/src/alpha.tsx` | modify | 1, 3 | Remove `mountGlobalScopeBar()`; later wire auth API factory |
-| `plugins/mta/src/components/MigrationTab.tsx` | modify | 1, 2 | Remove prototype imports; later consume live API |
-| `plugins/mta/src/components/phases/*` | modify | 1, 2 | Remove store deps; later consume API data |
-| `plugins/mta/src/utils.ts` | modify | 1 | Remove `DISCOVERY_DELAY_MS`, `ACTION_TIMEOUT_MS` |
+| `plugins/mta/src/components/MigrationTab.tsx` | modify | 1, 2 | Per-app demo transitions; later consume live API |
+| `plugins/mta/src/components/phases/*` | modify | 1, 2 | Remove scope gates; later consume live API |
 | `plugins/mta/src/hooks/usePersonaRole.ts` | create | 1 | Group-membership persona detection |
 | `examples/mta-users.yaml` | modify | 1 | Named persona users and groups |
-| `examples/mta-components.yaml` | modify | 1, 2 | Persona ownership (Phase 1); Hub app alignment (Phase 2) |
-| `packages/backend/src/index.ts` | modify | 1 | Remove mock hub `backend.add()` |
+| `examples/mta-components.yaml` | modify | 1, 2 | Persona ownership and demo status; later Hub app alignment |
+| `app-config.yaml` | modify | 1, 2, 3 | Dev guest persona; later Hub URL and OIDC |
+| `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify | 1, 4 | Mock persona ownership/status; later live Hub sync |
+| `plugins/scaffolder-backend-module-mta-actions/src/module.ts` | modify | 1, 3, 4 | Mock entity refs; later delegated live registration |
+| `examples/mta-template/template.yaml` | modify | 1, 4 | Link generated demo entity; later live registration |
 | `plugins/mta-backend/src/service/types.ts` | create | 2 | Tackle2 domain model types |
 | `plugins/mta-backend/src/service/TackleClient.ts` | create | 2 | Hub REST client (no auth initially) |
 | `plugins/mta-backend/src/router.ts` | modify | 2, 3 | Add proxy routes; later add auth validation |
@@ -854,12 +829,8 @@ Every file created, modified, or deleted across all phases:
 | `plugins/mta/src/api/MtaApiClient.ts` | create | 2, 3 | Frontend API client; later add auth |
 | `plugins/mta/src/api/index.ts` | create | 2 | API barrel export |
 | `plugins/mta/src/hooks/useMtaAnalysis.ts` | create | 2 | Polling hook for analysis tasks |
-| `app-config.yaml` | modify | 2, 3 | Add `mta.baseUrl`; later add OIDC provider |
 | `plugins/mta/src/api/auth.ts` | create | 3 | `mtaAuthApiRef` definition |
 | `plugins/mta-backend/src/service/TackleClient.ts` | modify | 3 | Require user bearer token |
-| `plugins/scaffolder-backend-module-mta-actions/src/module.ts` | modify | 3, 4 | Forward user token; later live Hub POST |
-| `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify | 3, 4 | Service credentials; later Hub sync |
-| `examples/mta-template/template.yaml` | modify | 4 | Pass Hub registration params |
 | `plugins/mta/package.json` | modify | 5 | Add Scalprum config |
 | `package.json` | modify | 5 | Add `export:dynamic` script |
 | `configs/dynamic-plugins/dynamic-plugins.override.yaml` | create | 5 | RHDH plugin configuration |

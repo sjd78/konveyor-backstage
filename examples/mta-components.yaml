@@ -5,7 +5,10 @@ metadata:
   description: Java-based inventory management service being migrated from JBoss EAP to Quarkus
   annotations:
     mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/inventory-service"
-    mta.konveyor.io/assigned-developer: "user:development/guest"
+    mta.konveyor.io/assigned-developer: "user:default/dev-chen"
+    mta.konveyor.io/status: Active
+    mta.konveyor.io/issues-count: "42"
+    mta.konveyor.io/critical-issues: "8"
   tags:
     - java
     - quarkus
@@ -13,7 +16,7 @@ metadata:
 spec:
   type: service
   lifecycle: production
-  owner: user:development/guest
+  owner: group:default/mta-architects
 
 ---
 
@@ -22,13 +25,17 @@ kind: Component
 metadata:
   name: order-management
   description: Spring Boot order processing service targeted for containerization on OpenShift
+  annotations:
+    mta.konveyor.io/status: Analysis
+    mta.konveyor.io/issues-count: "23"
+    mta.konveyor.io/critical-issues: "3"
   tags:
     - java
     - spring-boot
 spec:
   type: service
   lifecycle: production
-  owner: user:default/user
+  owner: group:default/mta-architects
 
 ---
 
@@ -39,6 +46,10 @@ metadata:
   description: Java EE customer portal with EJB messaging and JSP views targeted for EAP 8 migration
   annotations:
     mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/customer-portal"
+    mta.konveyor.io/assigned-developer: "user:default/dev-chen"
+    mta.konveyor.io/status: Post-remediation
+    mta.konveyor.io/issues-count: "2"
+    mta.konveyor.io/critical-issues: "1"
   tags:
     - java
     - jboss-eap
@@ -46,7 +57,7 @@ metadata:
 spec:
   type: website
   lifecycle: production
-  owner: user:default/user
+  owner: group:default/mta-architects
 
 ---
 
@@ -55,13 +66,17 @@ kind: Component
 metadata:
   name: notification-hub
   description: Java EE notification service with JMS messaging being migrated from EAP 7 to EAP 8
+  annotations:
+    mta.konveyor.io/status: Completed
+    mta.konveyor.io/issues-count: "0"
+    mta.konveyor.io/critical-issues: "0"
   tags:
     - java
     - kafka
 spec:
   type: service
   lifecycle: production
-  owner: user:default/user
+  owner: group:default/mta-architects
 
 ---
 
@@ -70,13 +85,17 @@ kind: Component
 metadata:
   name: data-pipeline
   description: Java EE batch processing pipeline targeted for Quarkus modernization
+  annotations:
+    mta.konveyor.io/status: Not Started
+    mta.konveyor.io/issues-count: "0"
+    mta.konveyor.io/critical-issues: "0"
   tags:
     - java
     - batch
 spec:
   type: service
   lifecycle: experimental
-  owner: user:default/user
+  owner: group:default/mta-architects
 
 ---
 
@@ -106,4 +125,4 @@ metadata:
   name: mta-portfolio
   description: Portfolio of applications managed by the Migration Toolkit for Applications
 spec:
-  owner: user:default/user
+  owner: group:default/mta-architects

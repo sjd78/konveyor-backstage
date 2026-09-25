@@ -1,5 +1,5 @@
 app:
-  title: Scaffolded Backstage App
+  title: Konveyor Connected Backstage App
   baseUrl: http://localhost:3000
 
   # Enable all packages by default, this will discover packages from packages/app/package.json
@@ -225,12 +225,12 @@ catalog:
     - type: file
       target: ../../examples/mta-components.yaml
 
-
     # MTA users and groups
     - type: file
       target: ../../examples/mta-users.yaml
       rules:
         - allow: [User, Group]
+
     # MTA registration template
     - type: file
       target: ../../examples/mta-template/template.yaml

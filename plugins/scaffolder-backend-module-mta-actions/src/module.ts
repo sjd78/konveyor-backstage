@@ -26,7 +26,9 @@ export const scaffolderModuleMtaActions = createBackendModule({
         discovery: coreServices.discovery,
       },
       async init({ scaffolder, logger, discovery }) {
-        logger.info('MTA Scaffolder Actions: registering mta:register-application');
+        logger.info(
+          'MTA Scaffolder Actions: registering mta:register-application',
+        );
 
         scaffolder.addActions(
           createTemplateAction<{
@@ -65,6 +67,10 @@ export const scaffolderModuleMtaActions = createBackendModule({
                     type: 'string',
                     title: 'Application Name',
                   },
+                  applicationTitle: {
+                    type: 'string',
+                    title: 'Application Display Name',
+                  },
                   entityRef: {
                     type: 'string',
                     title: 'Entity Reference',
@@ -89,7 +95,9 @@ export const scaffolderModuleMtaActions = createBackendModule({
                 );
               }
 
-              ctx.logger.info(`Registering application with MTA Hub: ${repoUrl}`);
+              ctx.logger.info(
+                `Registering application with MTA Hub: ${repoUrl}`,
+              );
               const body: { repoUrl: string; rootPath?: string } = { repoUrl };
               if (rootPath) {
                 body.rootPath = rootPath;
@@ -109,7 +117,9 @@ export const scaffolderModuleMtaActions = createBackendModule({
               }
 
               const app = (await response.json()) as RegisterAppResponse;
-              ctx.logger.info(`Application registered: ${app.name} (${app.id})`);
+              ctx.logger.info(
+                `Application registered: ${app.name} (${app.id})`,
+              );
 
               ctx.logger.info('Waiting for catalog sync...');
               await new Promise<void>(resolve => {
@@ -119,16 +129,19 @@ export const scaffolderModuleMtaActions = createBackendModule({
                 'Catalog sync wait complete. Application should now be visible in the Software Catalog.',
               );
 
-              const sanitizedName = app.name
-                .toLowerCase()
-                .replace(/[^a-z0-9-]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '')
-                .substring(0, 63);
+              const prefix =
+                app.name
+                  .toLowerCase()
+                  .replace(/[^a-z0-9-]/g, '-')
+                  .replace(/-+/g, '-')
+                  .replace(/^-|-$/g, '')
+                  .slice(0, 22) || 'application';
+              const catalogName = `mta-${prefix}-${app.id}`;
 
               ctx.output('applicationId', app.id);
-              ctx.output('applicationName', sanitizedName);
-              ctx.output('entityRef', `component:default/${sanitizedName}`);
+              ctx.output('applicationName', catalogName);
+              ctx.output('applicationTitle', app.name);
+              ctx.output('entityRef', `component:default/${catalogName}`);
               ctx.output(
                 'message',
                 `Application "${app.name}" registered successfully.`,
