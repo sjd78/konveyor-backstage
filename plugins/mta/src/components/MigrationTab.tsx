@@ -67,6 +67,13 @@ export function MigrationTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { entity } = useEntity();
   const store = useMtaStore();
+  const {
+    ensureApplication,
+    matchArchetypes,
+    updateApplication,
+    simulateDiscovery,
+    seedIssuesIfNeeded,
+  } = store;
   const discoveryApi = useApi(discoveryApiRef);
   const { role: persona, loading: personaLoading } = usePersonaRole();
   const entityRef = stringifyEntityRef(entity);
@@ -89,8 +96,8 @@ export function MigrationTab() {
 
   useEffect(() => {
     const tags = mockAppId ? annotatedTags(annotationTags) : [];
-    const archetype = store.matchArchetypes(tags)[0];
-    store.ensureApplication(entityRef, {
+    const archetype = matchArchetypes(tags)[0];
+    ensureApplication(entityRef, {
       name: entity.metadata.name,
       repoUrl,
       discoveredTags: tags,
@@ -113,8 +120,8 @@ export function MigrationTab() {
     mockAppId,
     annotationStatus,
     annotationTags,
-    store.ensureApplication,
-    store.matchArchetypes,
+    ensureApplication,
+    matchArchetypes,
   ]);
 
   const app = store.getApplicationByEntityRef(entityRef);
@@ -144,7 +151,7 @@ export function MigrationTab() {
       { replace: true },
     );
     if (!mockAppId && displayStatus === 'Not Started') {
-      store.updateApplication(appId, { status: 'Discovery' });
+      updateApplication(appId, { status: 'Discovery' });
     }
   }, [
     searchParams,
@@ -153,16 +160,16 @@ export function MigrationTab() {
     entityRef,
     mockAppId,
     displayStatus,
-    store.updateApplication,
+    updateApplication,
   ]);
 
   useEffect(() => {
     if (!appId || mockAppId || displayStatus !== 'Discovery') return undefined;
     let cancelled = false;
-    store.simulateDiscovery(repoUrl).then(tags => {
+    simulateDiscovery(repoUrl).then(tags => {
       if (cancelled) return;
-      const archetype = store.matchArchetypes(tags)[0];
-      store.updateApplication(appId, {
+      const archetype = matchArchetypes(tags)[0];
+      updateApplication(appId, {
         discoveredTags: tags,
         archetypeId: archetype?.id ?? 'arch-1',
         status: archetype ? 'Path Selection' : 'Failed',
@@ -176,9 +183,9 @@ export function MigrationTab() {
     mockAppId,
     displayStatus,
     repoUrl,
-    store.simulateDiscovery,
-    store.matchArchetypes,
-    store.updateApplication,
+    simulateDiscovery,
+    matchArchetypes,
+    updateApplication,
   ]);
 
   useEffect(() => {
@@ -205,7 +212,7 @@ export function MigrationTab() {
           )
         ) {
           const tags = result.discoveredTags ?? [];
-          const archetype = store.matchArchetypes(tags)[0];
+          const archetype = matchArchetypes(tags)[0];
           const status = mockStatus(result.status);
           if (
             currentApp.status !== status ||
@@ -215,7 +222,7 @@ export function MigrationTab() {
             ) ||
             (archetype && currentApp.archetypeId !== archetype.id)
           ) {
-            store.updateApplication(appId, {
+            updateApplication(appId, {
               status,
               discoveredTags: tags,
               ...(archetype ? { archetypeId: archetype.id } : {}),
@@ -246,8 +253,8 @@ export function MigrationTab() {
     appId,
     mockAppId,
     discoveryApi,
-    store.matchArchetypes,
-    store.updateApplication,
+    matchArchetypes,
+    updateApplication,
   ]);
 
   useEffect(() => {
@@ -259,9 +266,9 @@ export function MigrationTab() {
     const key = `${appId}:${displayStatus}`;
     if (needsIssues && seededRef.current !== key) {
       seededRef.current = key;
-      store.seedIssuesIfNeeded(appId);
+      seedIssuesIfNeeded(appId);
     }
-  }, [displayStatus, appId, store.seedIssuesIfNeeded]);
+  }, [displayStatus, appId, seedIssuesIfNeeded]);
 
   const target = app
     ? store.getTargetProfileById(app.targetProfileId)
@@ -272,8 +279,8 @@ export function MigrationTab() {
 
   const handleStartDiscovery = useCallback(() => {
     if (!appId) return;
-    store.updateApplication(appId, { status: 'Discovery' });
-  }, [appId, store.updateApplication]);
+    updateApplication(appId, { status: 'Discovery' });
+  }, [appId, updateApplication]);
 
   if (personaLoading) return null;
 

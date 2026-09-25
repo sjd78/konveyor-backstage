@@ -7,6 +7,11 @@ import { useMtaStore } from '../../store/MtaStore';
 import { SUPPORT_CONTACT } from '../../store/mockData';
 import type { MtaApplication } from '../../types';
 
+const TITLE_BY_ERROR_TYPE: Record<string, string> = {
+  'no-archetype-match': 'No matching application type',
+  'repo-access-denied': 'Repository access denied',
+};
+
 export function PhaseFailed({
   app,
   store,
@@ -18,12 +23,7 @@ export function PhaseFailed({
   errorType: string;
   errorMessage: string;
 }) {
-  const title =
-    errorType === 'no-archetype-match'
-      ? 'No matching application type'
-      : errorType === 'repo-access-denied'
-      ? 'Repository access denied'
-      : 'Analysis failed';
+  const title = TITLE_BY_ERROR_TYPE[errorType] ?? 'Analysis failed';
 
   const message =
     errorMessage ||

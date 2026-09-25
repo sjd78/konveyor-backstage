@@ -154,7 +154,7 @@ export function DevSpacesLaunchDialog({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       },
-      () => { console.warn('Clipboard write failed'); },
+      () => {},
     );
   };
 

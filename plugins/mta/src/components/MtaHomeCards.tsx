@@ -13,7 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ComponentType,
+  CSSProperties,
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
@@ -174,7 +181,7 @@ const useStyles = makeStyles(theme => ({
 
 const CARD_ICON_MAP: Record<
   PhaseIconKey,
-  React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  ComponentType<{ className?: string; style?: CSSProperties }>
 > = {
   hourglass: HourglassEmptyIcon,
   search: SearchIcon,
@@ -546,10 +553,10 @@ function DeveloperCardContent() {
       <Box className={classes.scrollList}>
         <List dense disablePadding>
           {apps.map((app, index) => (
-            <React.Fragment key={`${app.namespace}/${app.name}`}>
+            <Fragment key={`${app.namespace}/${app.name}`}>
               {index > 0 && <Divider />}
               <AppRow app={app} />
-            </React.Fragment>
+            </Fragment>
           ))}
         </List>
       </Box>

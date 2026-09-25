@@ -168,20 +168,20 @@ function saveSessionState(
 
 export function MtaStoreProvider(props: { children: ReactNode }) {
   const [{ cached, lastId }] = useState(() => {
-    const cached = loadSessionState();
-    let lastId = 100;
+    const initialCached = loadSessionState();
+    let initialLastId = 100;
     for (const entries of [
-      cached?.applications,
-      cached?.issues,
-      cached?.actionHistory,
+      initialCached?.applications,
+      initialCached?.issues,
+      initialCached?.actionHistory,
     ]) {
       if (!Array.isArray(entries)) continue;
       for (const entry of entries) {
         const match = /-(\d+)$/.exec(String(entry.id));
-        if (match) lastId = Math.max(lastId, Number(match[1]));
+        if (match) initialLastId = Math.max(initialLastId, Number(match[1]));
       }
     }
-    return { cached, lastId };
+    return { cached: initialCached, lastId: initialLastId };
   });
   const idCounterRef = useRef(lastId);
   const nextId = useCallback((prefix: string): string => {

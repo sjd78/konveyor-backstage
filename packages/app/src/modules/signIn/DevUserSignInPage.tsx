@@ -197,6 +197,16 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
               (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
               (e.currentTarget as HTMLButtonElement).style.transform = 'none';
             }}
+            onFocus={e => {
+              if (!signingIn) {
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+              }
+            }}
+            onBlur={e => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'none';
+            }}
           >
             <span style={{
               width: 48,
