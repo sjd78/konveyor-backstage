@@ -10,10 +10,7 @@ app:
     # The catalog is mounted at /catalog by default but is overridden here to
     # serve as the root page. To switch to the Home page, comment out the
     # catalog path override and uncomment the home path override.
-    - page:catalog:
-        config:
-          path: /
-    # - page:home:
+    # - page:catalog:
     #     config:
     #       path: /
 
@@ -54,6 +51,7 @@ app:
               timeZone: Asia/Tokyo
     - page:home:
         config:
+          path: /
           defaultConfig:
             - component: HomePageSearchBar
               column: 0
@@ -61,11 +59,16 @@ app:
               width: 12
               height: 2
               deletable: false
-            - component: GettingStarted
+            - component: MtaHomeSection
               column: 0
               row: 1
+              width: 12
+              height: 6
+            - component: GettingStarted
+              column: 0
+              row: 2
               width: 4
-              height: 11
+              height: 12
             - component: HomePageStarredEntities
               column: 4
               row: 2
@@ -80,12 +83,12 @@ app:
               column: 4
               row: 6
               width: 4
-              height: 3
+              height: 4
             - component: HomePageWorldClock
               column: 8
               row: 6
               width: 4
-              height: 3
+              height: 4
             - component: HomePageMostVisited
               column: 4
               row: 9
@@ -96,11 +99,6 @@ app:
               row: 9
               width: 4
               height: 4
-            - component: MtaHomeSection
-              column: 0
-              row: 13
-              width: 12
-              height: 6
 
 organization:
   name: KonveyorDevelopment
