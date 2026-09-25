@@ -96,3 +96,18 @@ Starts:
 3. **Migration Tab:** Navigate to **Catalog** -> `inventory-service` -> click the **Migration** tab (`/catalog/default/component/inventory-service/migration`).
 4. **Prototype Scope Bar:** Use the top bar to switch personas (`Application Architect` / `Corporate Developer`) or override migration lifecycle state (`Not Started`, `Discovery`, `Path Selection`, `Analysis`, `Active`, `Completed`, `Failed`).
 5. **Software Templates:** Navigate to **Create** (`/create`) to view and run the **Register application for migration** template.
+
+--
+
+## UI Design System
+
+- [Designing for Backstage](https://backstage.io/docs/dls/design)
+- [Backstage components storybook](https://backstage.io/storybook) - `@backstage/core-components`
+- Backstage v1.10 design system builds on top of [Material UI](https://material-ui.com/)
+
+--
+
+## References
+
+- [RHDH v1.10 docs](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.10)
+- [Backstage](https://backstage.io)
