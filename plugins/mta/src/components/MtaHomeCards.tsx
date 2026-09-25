@@ -317,12 +317,14 @@ function SkeletonRows({ count }: { count: number }) {
             primary={
               <Skeleton variant="rect" height={14} width={`${55 + i * 15}%`} />
             }
+            primaryTypographyProps={{ component: 'div' }}
             secondary={
               <Box display="flex" alignItems="center" gridGap={6} mt={0.75}>
                 <Skeleton variant="circle" width={8} height={8} />
                 <Skeleton variant="rect" height={10} width="40%" />
               </Box>
             }
+            secondaryTypographyProps={{ component: 'div' }}
           />
           <Skeleton variant="circle" width={18} height={18} />
         </ListItem>

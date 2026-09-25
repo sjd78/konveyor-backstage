@@ -1,8 +1,8 @@
 import {
-  Link,
   sidebarConfig,
   useSidebarOpenState,
 } from '@backstage/core-components';
+import { Link } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core';
 import { LogoFull } from './LogoFull';
 import { LogoIcon } from './LogoIcon';
@@ -28,7 +28,12 @@ export const SidebarLogo = () => {
 
   return (
     <div className={classes.root}>
-      <Link to="/" underline="none" className={classes.link} aria-label="Home">
+      <Link
+        to="/"
+        className={classes.link}
+        aria-label="Home"
+        style={{ textDecoration: 'none' }}
+      >
         {isOpen ? <LogoFull /> : <LogoIcon />}
       </Link>
     </div>
