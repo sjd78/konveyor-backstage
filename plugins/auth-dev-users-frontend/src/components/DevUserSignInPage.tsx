@@ -3,11 +3,15 @@ import {
   discoveryApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
+import type {
+  IdentityApi,
+  ProfileInfo,
+  BackstageUserIdentity,
+} from '@backstage/core-plugin-api';
 import type { SignInPageProps } from '@backstage/plugin-app-react';
-import type { IdentityApi, ProfileInfo, BackstageUserIdentity } from '@backstage/core-plugin-api';
 
 // ── Types ──────────────────────────────────────────────────────────────
-interface DevUser {
+export interface DevUser {
   userEntityRef: string;
   displayName: string;
 }

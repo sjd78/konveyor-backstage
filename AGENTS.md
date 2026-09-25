@@ -89,6 +89,8 @@ This repository was created to run the **mainline version of Backstage** with th
 | `@internal/backstage-plugin-mta-mock-hub-backend` | `plugins/mta-mock-hub-backend` | In-memory MTA Hub simulator | `src/plugin.ts`, `src/router.ts` |
 | `@internal/backstage-plugin-catalog-backend-module-mta-entity-provider` | `plugins/catalog-backend-module-mta-entity-provider` | Ingests MTA apps into Software Catalog | `src/module.ts` |
 | `@internal/backstage-plugin-scaffolder-backend-module-mta-actions` | `plugins/scaffolder-backend-module-mta-actions` | Custom `mta:register-application` action | `src/module.ts` |
+| `@internal/backstage-plugin-auth-backend-module-dev-users` | `plugins/auth-backend-module-dev-users` | Backend auth module for selectable dev personas | `src/index.ts`, `src/module.ts` |
+| `@internal/backstage-plugin-auth-dev-users-frontend` | `plugins/auth-dev-users-frontend` | Frontend sign-in page plugin for dev personas | `src/index.ts`, `src/plugin.ts`, `src/components/DevUserSignInPage.tsx` |
 
 ---
 

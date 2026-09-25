@@ -10,7 +10,7 @@ import {
 } from '@backstage/plugin-auth-node';
 
 /** A preconfigured catalog user that can be selected from the dev sign-in page. */
-interface DevUser {
+export interface DevUser {
   userEntityRef: string;
   displayName: string;
 }
@@ -27,9 +27,9 @@ interface DevUser {
  * `DevUserSignInPage` frontend can discover the configured personas without
  * needing direct access to backend-only config.
  */
-export default createBackendModule({
+export const authModuleDevUsers = createBackendModule({
   pluginId: 'auth',
-  moduleId: 'dev-user-auth',
+  moduleId: 'dev-users',
   register(reg) {
     reg.registerInit({
       deps: {
@@ -39,7 +39,7 @@ export default createBackendModule({
         parentLogger: coreServices.logger,
       },
       async init({ authProviders, httpRouter, config, parentLogger }) {
-        const logger = parentLogger.child({ module: 'dev-user-auth' });
+        const logger = parentLogger.child({ module: 'dev-users' });
 
         const guestConfig = config.getOptionalConfig('auth.providers.guest');
         const usersConfig = guestConfig?.getOptionalConfigArray('users') ?? [];
@@ -92,8 +92,12 @@ export default createBackendModule({
             }),
             signInResolver: async (info, ctx) => {
               const userRef =
-                (info.result as { userEntityRef?: string }).userEntityRef ??
-                defaultRef;
+                info.result &&
+                typeof info.result === 'object' &&
+                'userEntityRef' in info.result &&
+                typeof info.result.userEntityRef === 'string'
+                  ? info.result.userEntityRef
+                  : defaultRef;
               try {
                 return await ctx.signInWithCatalogUser({
                   entityRef: userRef,

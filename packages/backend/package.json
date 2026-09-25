@@ -46,6 +46,7 @@
     "@backstage/plugin-signals-backend": "^0.3.19",
     "@backstage/plugin-techdocs-backend": "^2.3.0",
     "@backstage/plugin-user-settings-backend": "^0.4.7",
+    "@internal/backstage-plugin-auth-backend-module-dev-users": "workspace:^",
     "@internal/backstage-plugin-catalog-backend-module-mta-entity-provider": "workspace:^",
     "@internal/backstage-plugin-mta-backend": "workspace:^",
     "@internal/backstage-plugin-mta-mock-hub-backend": "workspace:^",
