@@ -68,7 +68,7 @@ export function MigrationTab() {
   const { entity } = useEntity();
   const store = useMtaStore();
   const discoveryApi = useApi(discoveryApiRef);
-  const persona = usePersonaRole();
+  const { role: persona, loading: personaLoading } = usePersonaRole();
   const entityRef = stringifyEntityRef(entity);
   const annotations = entity.metadata.annotations ?? {};
   const mockAppId = annotations['konveyor.io/application-id'];
@@ -274,6 +274,8 @@ export function MigrationTab() {
     if (!appId) return;
     store.updateApplication(appId, { status: 'Discovery' });
   }, [appId, store.updateApplication]);
+
+  if (personaLoading) return null;
 
   if (
     persona !== 'architect' &&

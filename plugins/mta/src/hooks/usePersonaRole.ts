@@ -3,9 +3,17 @@ import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 
 export type PersonaRole = 'architect' | 'developer' | 'unknown';
 
-export function usePersonaRole(): PersonaRole {
+export interface PersonaRoleState {
+  role: PersonaRole;
+  loading: boolean;
+}
+
+export function usePersonaRole(): PersonaRoleState {
   const identityApi = useApi(identityApiRef);
-  const [role, setRole] = useState<PersonaRole>('unknown');
+  const [state, setState] = useState<PersonaRoleState>({
+    role: 'unknown',
+    loading: true,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -15,20 +23,20 @@ export function usePersonaRole(): PersonaRole {
         if (cancelled) return;
         const groups = identity.ownershipEntityRefs;
         if (groups.includes('group:default/mta-architects')) {
-          setRole('architect');
+          setState({ role: 'architect', loading: false });
         } else if (groups.includes('group:default/mta-developers')) {
-          setRole('developer');
+          setState({ role: 'developer', loading: false });
         } else {
-          setRole('unknown');
+          setState({ role: 'unknown', loading: false });
         }
       })
       .catch(() => {
-        if (!cancelled) setRole('unknown');
+        if (!cancelled) setState({ role: 'unknown', loading: false });
       });
     return () => {
       cancelled = true;
     };
   }, [identityApi]);
 
-  return role;
+  return state;
 }

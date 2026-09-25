@@ -218,18 +218,22 @@ function useMtaEntities(persona: 'architect' | 'developer'): {
     let cancelled = false;
     const load = async () => {
       try {
-        const filter: Record<string, string> =
-          persona === 'architect'
-            ? {
-                kind: 'Component',
-                'relations.ownedBy': 'group:default/mta-architects',
-              }
-            : {
-                kind: 'Component',
-                [`metadata.annotations.${MTA_ASSIGNED_DEVELOPER}`]: (
-                  await identityApi.getBackstageIdentity()
-                ).userEntityRef,
-              };
+        let filter: Record<string, string>;
+        if (persona === 'architect') {
+          filter = {
+            kind: 'Component',
+            'relations.ownedBy': 'group:default/mta-architects',
+          };
+        } else {
+          const identity = await identityApi.getBackstageIdentity();
+          if (cancelled) return;
+          filter = {
+            kind: 'Component',
+            [`metadata.annotations.${MTA_ASSIGNED_DEVELOPER}`]:
+              identity.userEntityRef,
+          };
+        }
+        if (cancelled) return;
         const response = await catalogApi.getEntities({
           filter,
           fields: [
@@ -278,17 +282,18 @@ function useMtaEntities(persona: 'architect' | 'developer'): {
       const mockId = e.annotations['konveyor.io/application-id'];
       const demoIsPending =
         demo?.status === 'Not Started' || demo?.status === 'Discovery';
+      const useDemo = Boolean(demo && (!mockId || !demoIsPending));
       return {
         name: e.name,
         title: e.title,
         namespace: e.namespace,
-        status: demo && (!mockId || !demoIsPending) ? demo.status : status,
-        issuesCount:
-          demo?.issuesCount ??
-          Number(e.annotations['mta.konveyor.io/issues-count'] || 0),
-        criticalIssues:
-          demo?.criticalIssues ??
-          Number(e.annotations['mta.konveyor.io/critical-issues'] || 0),
+        status: useDemo ? demo!.status : status,
+        issuesCount: useDemo
+          ? demo!.issuesCount ?? 0
+          : Number(e.annotations['mta.konveyor.io/issues-count'] || 0),
+        criticalIssues: useDemo
+          ? demo!.criticalIssues ?? 0
+          : Number(e.annotations['mta.konveyor.io/critical-issues'] || 0),
       };
     });
   }, [rawEntities]);
@@ -553,7 +558,16 @@ function DeveloperCardContent() {
 }
 
 function HomeCardContent() {
-  const persona = usePersonaRole();
+  const { role: persona, loading } = usePersonaRole();
+  if (loading) {
+    return (
+      <InfoCard title="Migration Toolkit for Applications">
+        <List dense disablePadding>
+          <SkeletonRows count={2} />
+        </List>
+      </InfoCard>
+    );
+  }
   if (persona === 'architect') return <ArchitectCardContent />;
   if (persona === 'developer') return <DeveloperCardContent />;
   return (
