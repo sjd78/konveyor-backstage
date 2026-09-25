@@ -106,6 +106,15 @@ organization:
   name: KonveyorDevelopment
 
 backend:
+  logger:
+    # Silence the noisy per-request access log lines emitted by the
+    # rootHttpRouter service (type: incomingRequest) for every request,
+    # without lowering the global backend log level. Startup ("Listening
+    # on...") and error logs from the same service still come through.
+    overrides:
+      - matchers:
+          type: incomingRequest
+        level: warn
   # Used for enabling authentication, secret is shared by all backend plugins
   # See https://backstage.io/docs/auth/service-to-service-auth for
   # information on the format

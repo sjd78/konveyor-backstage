@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   discoveryApiRef,
   useApi,
-  configApiRef,
 } from '@backstage/core-plugin-api';
 import type { SignInPageProps } from '@backstage/plugin-app-react';
 import type { IdentityApi, ProfileInfo, BackstageUserIdentity } from '@backstage/core-plugin-api';
@@ -98,23 +97,39 @@ class DevUserIdentity implements IdentityApi {
 }
 
 // ── Sign-in page component ────────────────────────────────────────────
+const DEFAULT_USERS: DevUser[] = [
+  { userEntityRef: 'user:default/guest', displayName: 'Guest' },
+];
+
 export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
   const discoveryApi = useApi(discoveryApiRef);
-  const configApi = useApi(configApiRef);
   const [error, setError] = useState<string>();
   const [signingIn, setSigningIn] = useState(false);
+  const [users, setUsers] = useState<DevUser[]>(DEFAULT_USERS);
 
-  const usersConfig = configApi.getOptionalConfigArray('auth.providers.guest.users') ?? [];
-  const users: DevUser[] = usersConfig.map(c => ({
-    userEntityRef: c.getString('userEntityRef'),
-    displayName: c.getOptionalString('displayName') ?? c.getString('userEntityRef'),
-  }));
-
-  if (users.length === 0) {
-    users.push(
-      { userEntityRef: 'user:default/guest', displayName: 'Guest' },
-    );
-  }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = await discoveryApi.getBaseUrl('auth');
+        const res = await fetch(`${base}/dev-users`);
+        if (!res.ok) {
+          throw new Error(`Failed to load dev users: ${res.statusText}`);
+        }
+        const data: { users: DevUser[] } = await res.json();
+        if (!cancelled && data.users?.length > 0) {
+          setUsers(data.users);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [discoveryApi]);
 
   const handleSelect = async (user: DevUser) => {
     setSigningIn(true);
@@ -130,6 +145,7 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
         credentials: 'include',
       });
       if (!res.ok) throw new Error(`Sign-in failed: ${res.statusText}`);
+
       const session: SessionResponse = await res.json();
 
       const identity = new DevUserIdentity(
