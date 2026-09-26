@@ -1,6 +1,7 @@
 {
   "name": "root",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "engines": {
     "node": "22 || 24"
@@ -29,7 +30,7 @@
     "cli": {
       "new": {
         "globals": {
-          "license": "UNLICENSED"
+          "license": "Apache-2.0"
         }
       }
     }

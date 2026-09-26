@@ -1,7 +1,7 @@
 {
   "name": "@internal/backstage-plugin-scaffolder-backend-module-mta-actions",
   "version": "0.1.0",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "description": "The mta-actions backend module for the scaffolder plugin.",
   "main": "src/index.ts",

@@ -1,7 +1,7 @@
 {
   "name": "@internal/backstage-plugin-auth-dev-users-frontend",
   "version": "0.1.0",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "description": "The dev-users frontend plugin for Backstage.",
   "main": "src/index.ts",

@@ -1,7 +1,7 @@
 {
   "name": "@internal/backstage-plugin-auth-backend-module-dev-users",
   "version": "0.1.0",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "description": "The dev-users backend module for the auth plugin.",
   "main": "src/index.ts",
