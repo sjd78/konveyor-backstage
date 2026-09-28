@@ -1,110 +1,9 @@
-import { useEffect, useState } from 'react';
-import {
-  discoveryApiRef,
-  useApi,
-} from '@backstage/core-plugin-api';
-import type {
-  IdentityApi,
-  ProfileInfo,
-  BackstageUserIdentity,
-} from '@backstage/core-plugin-api';
+import { useState } from 'react';
+import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
 import type { SignInPageProps } from '@backstage/plugin-app-react';
+import { signInDevUser } from '../utils/user-identity';
+import { useFetchDevUsers, DevUser } from '../hooks/useFetchDevUsers';
 
-// ── Types ──────────────────────────────────────────────────────────────
-export interface DevUser {
-  userEntityRef: string;
-  displayName: string;
-}
-
-interface SessionResponse {
-  profile: ProfileInfo;
-  backstageIdentity: {
-    token: string;
-    identity: BackstageUserIdentity;
-  };
-}
-
-// ── Lightweight IdentityApi backed by the guest /refresh endpoint ─────
-class DevUserIdentity implements IdentityApi {
-  private session: SessionResponse;
-  private refreshPromise: Promise<SessionResponse> | null = null;
-  private readonly discoveryBaseUrl: Promise<string>;
-  private readonly userEntityRef: string;
-
-  constructor(
-    session: SessionResponse,
-    discoveryBaseUrl: Promise<string>,
-    userEntityRef: string,
-  ) {
-    this.session = session;
-    this.discoveryBaseUrl = discoveryBaseUrl;
-    this.userEntityRef = userEntityRef;
-  }
-
-  getUserId(): string {
-    const ref = this.session.backstageIdentity.identity.userEntityRef;
-    const match = /^([^:/]+:)?([^:/]+\/)?([^:/]+)$/.exec(ref);
-    if (!match) throw new TypeError(`Invalid user entity reference "${ref}"`);
-    return match[3];
-  }
-
-  async getIdToken(): Promise<string | undefined> {
-    const s = await this.ensureFresh();
-    return s.backstageIdentity.token;
-  }
-
-  getProfile(): ProfileInfo {
-    return this.session.profile;
-  }
-
-  async getProfileInfo(): Promise<ProfileInfo> {
-    const s = await this.ensureFresh();
-    return s.profile;
-  }
-
-  async getBackstageIdentity(): Promise<BackstageUserIdentity> {
-    const s = await this.ensureFresh();
-    return s.backstageIdentity.identity;
-  }
-
-  async getCredentials(): Promise<{ token?: string }> {
-    const s = await this.ensureFresh();
-    return { token: s.backstageIdentity.token };
-  }
-
-  async signOut(): Promise<void> {
-    try {
-      sessionStorage.clear();
-    } catch {
-      /* noop */
-    }
-  }
-
-  private async ensureFresh(): Promise<SessionResponse> {
-    if (this.refreshPromise) return this.refreshPromise;
-    this.refreshPromise = this.fetchSession().then(s => {
-      this.session = s;
-      this.refreshPromise = null;
-      return s;
-    });
-    return this.refreshPromise;
-  }
-
-  private async fetchSession(): Promise<SessionResponse> {
-    const base = await this.discoveryBaseUrl;
-    const res = await fetch(`${base}/guest/refresh`, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-User-Entity-Ref': this.userEntityRef,
-      },
-      credentials: 'include',
-    });
-    if (!res.ok) throw new Error(`Auth refresh failed: ${res.statusText}`);
-    return res.json();
-  }
-}
-
-// ── Sign-in page component ────────────────────────────────────────────
 const DEFAULT_USERS: DevUser[] = [
   { userEntityRef: 'user:default/guest', displayName: 'Guest' },
 ];
@@ -113,54 +12,13 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
   const discoveryApi = useApi(discoveryApiRef);
   const [error, setError] = useState<string>();
   const [signingIn, setSigningIn] = useState(false);
-  const [users, setUsers] = useState<DevUser[]>(DEFAULT_USERS);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const base = await discoveryApi.getBaseUrl('auth');
-        const res = await fetch(`${base}/dev-users`);
-        if (!res.ok) {
-          throw new Error(`Failed to load dev users: ${res.statusText}`);
-        }
-        const data: { users: DevUser[] } = await res.json();
-        if (!cancelled && data.users?.length > 0) {
-          setUsers(data.users);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [discoveryApi]);
+  const { users, error: fetchError, loading } = useFetchDevUsers(DEFAULT_USERS);
 
   const handleSelect = async (user: DevUser) => {
     setSigningIn(true);
     setError(undefined);
     try {
-      const baseUrlPromise = discoveryApi.getBaseUrl('auth');
-      const base = await baseUrlPromise;
-      const res = await fetch(`${base}/guest/refresh`, {
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-User-Entity-Ref': user.userEntityRef,
-        },
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error(`Sign-in failed: ${res.statusText}`);
-
-      const session: SessionResponse = await res.json();
-
-      const identity = new DevUserIdentity(
-        session,
-        discoveryApi.getBaseUrl('auth'),
-        user.userEntityRef,
-      );
+      const identity = await signInDevUser(user, discoveryApi);
       onSignInSuccess(identity);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -254,8 +112,8 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
         ))}
       </div>
 
-      {error && (
-        <p style={{ color: '#d32f2f', fontSize: 14 }}>{error}</p>
+      {(error || fetchError) && (
+        <p style={{ color: '#d32f2f', fontSize: 14 }}>{error || fetchError}</p>
       )}
     </div>
   );
