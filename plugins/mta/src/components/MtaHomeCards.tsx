@@ -17,11 +17,8 @@ import {
   ComponentType,
   CSSProperties,
   Fragment,
-  useEffect,
-  useMemo,
-  useState,
 } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import Chip from '@material-ui/core/Chip';
@@ -49,26 +46,16 @@ import {
   StatusWarning,
   WarningPanel,
 } from '@backstage/core-components';
-import { identityApiRef, useApi } from '@backstage/core-plugin-api';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { usePersonaRole } from '../hooks/usePersonaRole';
-import { readDemoApplications } from '../store/MtaStore';
+import { useMtaHomeData } from '../hooks/useMtaHomeData';
+import type { MtaAppInfo } from '../hooks/useMtaHomeData';
 import {
   MTA_REGISTER_TEMPLATE_PATH,
   DEVELOPER_PHASE_CONFIG,
   DEFAULT_DEVELOPER_PHASE,
 } from '../utils';
 import type { PhaseIconKey, PhaseTone } from '../utils';
-import type { MigrationStatus, MtaApplication } from '../types';
-
-interface MtaAppInfo {
-  name: string;
-  title?: string;
-  namespace: string;
-  status: MigrationStatus;
-  issuesCount: number;
-  criticalIssues: number;
-}
+import type { MigrationStatus } from '../types';
 
 function StatusIndicator({ status }: { status: MigrationStatus }) {
   switch (status) {
@@ -190,123 +177,7 @@ const CARD_ICON_MAP: Record<
   warning: ReportProblemOutlinedIcon,
 };
 
-interface RawEntity {
-  name: string;
-  title?: string;
-  namespace: string;
-  annotations: Record<string, string>;
-}
 
-const MTA_ASSIGNED_DEVELOPER = 'mta.konveyor.io/assigned-developer';
-
-const MIGRATION_STATUSES: readonly string[] = [
-  'Not Started',
-  'Discovery',
-  'Path Selection',
-  'Analysis',
-  'Active',
-  'Post-remediation',
-  'Completed',
-  'Failed',
-];
-
-function useMtaEntities(persona: 'architect' | 'developer'): {
-  apps: MtaAppInfo[];
-  loading: boolean;
-  error: boolean;
-} {
-  const catalogApi = useApi(catalogApiRef);
-  const identityApi = useApi(identityApiRef);
-  const [rawEntities, setRawEntities] = useState<RawEntity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        let filter: Record<string, string>;
-        if (persona === 'architect') {
-          filter = {
-            kind: 'Component',
-            'relations.ownedBy': 'group:default/mta-architects',
-          };
-        } else {
-          const identity = await identityApi.getBackstageIdentity();
-          if (cancelled) return;
-          filter = {
-            kind: 'Component',
-            [`metadata.annotations.${MTA_ASSIGNED_DEVELOPER}`]:
-              identity.userEntityRef,
-          };
-        }
-        if (cancelled) return;
-        const response = await catalogApi.getEntities({
-          filter,
-          fields: [
-            'metadata.name',
-            'metadata.title',
-            'metadata.namespace',
-            'metadata.annotations',
-          ],
-        });
-        if (cancelled) return;
-        setRawEntities(
-          response.items.map(e => ({
-            name: e.metadata.name,
-            title: e.metadata.title,
-            namespace: e.metadata.namespace ?? 'default',
-            annotations: e.metadata.annotations ?? {},
-          })),
-        );
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [catalogApi, identityApi, persona]);
-
-  const apps = useMemo(() => {
-    const demoByRef = new Map<string, MtaApplication>();
-    for (const app of readDemoApplications()) {
-      if (app.entityRef) demoByRef.set(app.entityRef, app);
-    }
-    return rawEntities.map(e => {
-      const demo = demoByRef.get(`component:${e.namespace}/${e.name}`);
-      const annotation = e.annotations['mta.konveyor.io/status'];
-      let status: MigrationStatus = 'Not Started';
-      if (annotation === 'registering') status = 'Discovery';
-      else if (annotation === 'discovered') status = 'Path Selection';
-      else if (annotation === 'failed') status = 'Failed';
-      else if (annotation && MIGRATION_STATUSES.includes(annotation)) {
-        status = annotation as MigrationStatus;
-      }
-      const mockId = e.annotations['konveyor.io/application-id'];
-      const demoIsPending =
-        demo?.status === 'Not Started' || demo?.status === 'Discovery';
-      const useDemo = Boolean(demo && (!mockId || !demoIsPending));
-      return {
-        name: e.name,
-        title: e.title,
-        namespace: e.namespace,
-        status: useDemo ? demo!.status : status,
-        issuesCount: useDemo
-          ? demo!.issuesCount ?? 0
-          : Number(e.annotations['mta.konveyor.io/issues-count'] || 0),
-        criticalIssues: useDemo
-          ? demo!.criticalIssues ?? 0
-          : Number(e.annotations['mta.konveyor.io/critical-issues'] || 0),
-      };
-    });
-  }, [rawEntities]);
-
-  return { apps, loading, error };
-}
 
 function SkeletonRows({ count }: { count: number }) {
   return (
@@ -387,8 +258,7 @@ function AppRow({ app }: { app: MtaAppInfo }) {
 
 function ArchitectCardContent() {
   const classes = useStyles();
-  const { apps, loading, error } = useMtaEntities('architect');
-
+  const { apps, loading, error } = useMtaHomeData('architect');
   if (loading) {
     return (
       <InfoCard title="Migration Toolkit for Applications">
@@ -512,8 +382,7 @@ function DeveloperStatusMessage({ status }: { status: string }) {
 
 function DeveloperCardContent() {
   const classes = useStyles();
-  const { apps, loading, error } = useMtaEntities('developer');
-
+  const { apps, loading, error } = useMtaHomeData('developer');
   if (loading) {
     return (
       <InfoCard title="Your Migration">

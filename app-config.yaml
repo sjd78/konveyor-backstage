@@ -41,14 +41,14 @@ app:
     - home-page-widget:home/world-clock:
         config:
           clockConfigs:
-            - label: NYC
+            - label: Buffalo
               timeZone: America/New_York
+            - label: Kraków
+              timeZone: Europe/Warsaw
+            - label: Tel Aviv
+              timeZone: Asia/Jerusalem
             - label: UTC
               timeZone: UTC
-            - label: STO
-              timeZone: Europe/Stockholm
-            - label: TYO
-              timeZone: Asia/Tokyo
     - page:home:
         config:
           path: /
@@ -269,3 +269,6 @@ permission:
 mcpActions:
   name: 'Konveyor Development Backstage' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
+
+mta:
+  baseUrl: ${MTA_HUB_BASE_URL}

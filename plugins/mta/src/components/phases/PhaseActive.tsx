@@ -27,6 +27,7 @@ import { ActionHistory } from '../shared/ActionHistory';
 import { RemediationRunning } from '../shared/RemediationRunning';
 import { DevSpacesLaunchDialog } from '../DevSpacesLaunchDialog';
 import { DeploymentAssetDialog } from '../DeploymentAssetDialog';
+import type { KonveyorApplication } from '../../api/types';
 import type {
   MigrationIssue,
   ActionHistoryEntry,
@@ -35,23 +36,29 @@ import type {
   Persona,
 } from '../../types';
 
+export interface PhaseActiveProps {
+  app: KonveyorApplication | MtaApplication;
+  issues: MigrationIssue[];
+  actions?: ActionHistoryEntry[];
+  store?: ReturnType<typeof useMtaStore>;
+  persona: Persona | 'unknown';
+  target?: { name: string; generatorName?: string };
+  isPostRemediation?: boolean;
+  onRunAnalysis?: () => void;
+  onCompleteMigration?: () => void;
+}
+
 export function PhaseActive({
   app,
   issues,
-  actions,
+  actions = [],
   store,
   persona,
   target,
-  isPostRemediation,
-}: {
-  app: MtaApplication;
-  issues: MigrationIssue[];
-  actions: ActionHistoryEntry[];
-  store: ReturnType<typeof useMtaStore>;
-  persona: Persona | 'unknown';
-  target?: { name: string; generatorName?: string };
-  isPostRemediation: boolean;
-}) {
+  isPostRemediation = false,
+  onRunAnalysis,
+  onCompleteMigration,
+}: PhaseActiveProps) {
   const classes = useStyles();
   const theme = useTheme();
   const [runningAction, setRunningAction] = useState<ActionType | null>(null);
@@ -115,24 +122,47 @@ export function PhaseActive({
   const estimatedEffort = unresolvedCount * 2;
 
   const hasRunRemediation = isPostRemediation;
-  const devSpacesActive = app.devSpacesActive === true;
-  const startedAgo = app.devSpacesStartedAt
-    ? timeAgo(app.devSpacesStartedAt)
-    : '15 minutes ago';
+  const repoUrl =
+    ('repository' in app && app.repository?.url) ||
+    ('repoUrl' in app && typeof app.repoUrl === 'string' ? app.repoUrl : '') ||
+    '';
+  const devSpacesActive =
+    'devSpacesActive' in app && typeof app.devSpacesActive === 'boolean'
+      ? app.devSpacesActive
+      : false;
+  const startedAgo =
+    'devSpacesStartedAt' in app && typeof app.devSpacesStartedAt === 'string'
+      ? timeAgo(app.devSpacesStartedAt)
+      : '15 minutes ago';
+  const devSpacesUser =
+    'devSpacesUser' in app && typeof app.devSpacesUser === 'string'
+      ? app.devSpacesUser
+      : 'developer';
+  const devSpacesAvailable =
+    'devSpacesAvailable' in app && typeof app.devSpacesAvailable === 'boolean'
+      ? app.devSpacesAvailable
+      : true;
 
   const handleAction = (action: ActionType) => {
     if (persona === 'unknown') return;
     if (action === 'run-analysis') {
-      store.updateApplication(app.id, { status: 'Analysis' });
-      // Allow the analysis phase to appear before the mock result returns.
-      setTimeout(
-        () => store.executeAction(app.id, action, persona),
-        ACTION_TIMEOUT_MS,
-      );
+      if (onRunAnalysis) {
+        onRunAnalysis();
+        return;
+      }
+      if (store) {
+        store.updateApplication(String(app.id), { status: 'Analysis' });
+        setTimeout(
+          () => store.executeAction(String(app.id), action, persona),
+          ACTION_TIMEOUT_MS,
+        );
+      }
       return;
     }
     setRunningAction(action);
-    store.executeAction(app.id, action, persona);
+    if (store) {
+      store.executeAction(String(app.id), action, persona);
+    }
     setTimeout(() => setRunningAction(null), ACTION_TIMEOUT_MS);
   };
 
@@ -349,9 +379,15 @@ export function PhaseActive({
                     variant="contained"
                     color="primary"
                     size="small"
-                    onClick={() =>
-                      store.updateApplication(app.id, { status: 'Completed' })
-                    }
+                    onClick={() => {
+                      if (onCompleteMigration) {
+                        onCompleteMigration();
+                      } else if (store) {
+                        store.updateApplication(String(app.id), {
+                          status: 'Completed',
+                        });
+                      }
+                    }}
                   >
                     Complete migration
                   </Button>
@@ -381,7 +417,7 @@ export function PhaseActive({
             </div>
             <div className={classes.configRow}>
               <span className={classes.configKey}>Member</span>
-              <span>{app.devSpacesUser ?? 'developer'}</span>
+              <span>{devSpacesUser}</span>
             </div>
             <div className={classes.configRow}>
               <span className={classes.configKey}>Started</span>
@@ -430,16 +466,16 @@ export function PhaseActive({
         onClose={() => setDevSpacesOpen(false)}
         onLaunch={() => handleAction('launch-workspace')}
         appName={app.name}
-        repoUrl={app.repoUrl}
+        repoUrl={repoUrl}
         config={DEFAULT_DEVSPACES_CONFIG}
-        available={app.devSpacesAvailable !== false}
+        available={devSpacesAvailable}
       />
       <DeploymentAssetDialog
         open={assetsOpen}
         onClose={() => setAssetsOpen(false)}
         onGenerate={() => {
-          if (persona === 'architect')
-            store.executeAction(app.id, 'generate-deployment-assets', persona);
+          if (persona === 'architect' && store)
+            store.executeAction(String(app.id), 'generate-deployment-assets', persona);
         }}
         appName={app.name}
         assets={DEPLOYMENT_ASSETS}
