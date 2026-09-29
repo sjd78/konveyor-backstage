@@ -5,42 +5,51 @@ import Typography from '@material-ui/core/Typography';
 import { alpha, useTheme } from '@material-ui/core/styles';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { InfoCard } from '@backstage/core-components';
+import type { KonveyorTask } from '../../api/types';
 import { useStyles } from '../shared/migrationTabStyles';
 
+export interface PhaseAnalyzingProps {
+  task?: KonveyorTask | null;
+  targetName?: string;
+  appTypeName?: string;
+}
+
 export function PhaseAnalyzing({
-  target,
-  archetype,
-}: {
-  target?: { name: string };
-  archetype?: { name: string };
-}) {
+  task,
+  targetName,
+  appTypeName,
+}: PhaseAnalyzingProps) {
   const classes = useStyles();
   const theme = useTheme();
   const successColor = theme.palette.status?.ok ?? theme.palette.success.main;
   const isDark = theme.palette.type === 'dark';
+
+  const activityText =
+    task?.activity && task.activity.length > 0
+      ? task.activity[task.activity.length - 1]
+      : 'Checking source code against target platform';
+
   return (
     <Box mb={2}>
       <InfoCard
         title="Running analysis"
-        subheader="About 2 to 5 minutes"
+        subheader={task?.state ? `Status: ${task.state}` : 'About 2 to 5 minutes'}
       >
         <Box display="flex" alignItems="center" mb={2} style={{ gap: 12 }}>
           <CircularProgress size={20} />
-          <Typography variant="body2">
-            Checking source code against target platform
-          </Typography>
+          <Typography variant="body2">{activityText}</Typography>
         </Box>
         <LinearProgress style={{ marginBottom: 16 }} />
-        {target && (
+        {targetName && (
           <div className={classes.configRow}>
             <span className={classes.configKey}>Migration path</span>
-            <span>{target.name}</span>
+            <span>{targetName}</span>
           </div>
         )}
-        {archetype && (
+        {appTypeName && (
           <div className={classes.configRow}>
             <span className={classes.configKey}>Application type</span>
-            <span>{archetype.name}</span>
+            <span>{appTypeName}</span>
           </div>
         )}
         <Box
@@ -54,13 +63,18 @@ export function PhaseAnalyzing({
           <Typography
             variant="caption"
             color="textSecondary"
-            style={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}
+            style={{
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              fontWeight: 600,
+            }}
             gutterBottom
           >
             What happens next
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Results will show compatibility issues with severity, file locations, and fix guidance.
+            Results will show compatibility issues with severity, file locations,
+            and fix guidance.
           </Typography>
         </Box>
         <Box
@@ -75,8 +89,14 @@ export function PhaseAnalyzing({
             border: `1px solid ${alpha(successColor, isDark ? 0.25 : 0.15)}`,
           }}
         >
-          <CheckCircleOutlineIcon style={{ fontSize: 16, color: successColor }} />
-          <Typography variant="body2" color="textSecondary" style={{ fontSize: '0.8rem' }}>
+          <CheckCircleOutlineIcon
+            style={{ fontSize: 16, color: successColor }}
+          />
+          <Typography
+            variant="body2"
+            color="textSecondary"
+            style={{ fontSize: '0.8rem' }}
+          >
             You can leave this page. Results will appear here when ready.
           </Typography>
         </Box>

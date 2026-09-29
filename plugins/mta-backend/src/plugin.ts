@@ -16,17 +16,31 @@ export const mtaPlugin = createBackendPlugin({
       deps: {
         httpRouter: coreServices.httpRouter,
         logger: coreServices.logger,
+        rootConfig: coreServices.rootConfig,
       },
-      async init({ httpRouter, logger }) {
+      async init({ httpRouter, logger, rootConfig }) {
+        const mtaBaseUrl =
+          rootConfig.getOptionalString('mta.baseUrl') ??
+          process.env.MTA_HUB_BASE_URL ??
+          'http://localhost:8080';
+
         httpRouter.use(
           await createRouter({
             logger,
+            mtaBaseUrl,
           }),
         );
-        httpRouter.addAuthPolicy({
-          path: '/entity',
-          allow: 'unauthenticated',
-        });
+
+        const unauthenticatedPaths = [
+          '/entity',
+          '/applications',
+          '/archetypes',
+          '/tasks',
+          '/insights',
+        ];
+        for (const path of unauthenticatedPaths) {
+          httpRouter.addAuthPolicy({ path, allow: 'unauthenticated' });
+        }
       },
     });
   },

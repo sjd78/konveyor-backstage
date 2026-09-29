@@ -17,11 +17,27 @@ export {
   mtaPlugin,
   mtaPlugin as default,
 } from './alpha';
-export { MtaStoreProvider, useMtaStore } from './store/MtaStore';
+export { mtaApiRef, MtaApiClient } from './api';
+export type { MtaApi } from './api';
+export {
+  useKonveyorMigration,
+} from './hooks/useKonveyorMigration';
 export type {
-  AggregateStats,
-  CatalogEntity,
-} from './store/MtaStore';
+  UseKonveyorMigrationResult,
+  UseKonveyorMigrationOptions,
+} from './hooks/useKonveyorMigration';
+export {
+  useKonveyorApplications,
+  useKonveyorApplication,
+  useKonveyorArchetypes,
+  useKonveyorIssues,
+} from './hooks/useKonveyorData';
+export { useMtaAnalysis } from './hooks/useMtaAnalysis';
+export type { UseMtaAnalysisResult } from './hooks/useMtaAnalysis';
+export { useKonveyorActions } from './hooks/useKonveyorActions';
+export type { UseKonveyorActionsResult } from './hooks/useKonveyorActions';
+export { useMtaHomeData } from './hooks/useMtaHomeData';
+export type { MtaAppInfo } from './hooks/useMtaHomeData';
 export type {
   MtaApplication,
   Archetype,

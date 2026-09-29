@@ -4,6 +4,7 @@ metadata:
   name: inventory-service
   description: Java-based inventory management service being migrated from JBoss EAP to Quarkus
   annotations:
+    konveyor.io/application-id: "1"
     mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/inventory-service"
     mta.konveyor.io/assigned-developer: "user:default/dev-chen"
     mta.konveyor.io/status: Active
@@ -26,6 +27,7 @@ metadata:
   name: order-management
   description: Spring Boot order processing service targeted for containerization on OpenShift
   annotations:
+    konveyor.io/application-id: "2"
     mta.konveyor.io/status: Analysis
     mta.konveyor.io/issues-count: "23"
     mta.konveyor.io/critical-issues: "3"
@@ -45,6 +47,7 @@ metadata:
   name: customer-portal
   description: Java EE customer portal with EJB messaging and JSP views targeted for EAP 8 migration
   annotations:
+    konveyor.io/application-id: "3"
     mta.konveyor.io/repo-url: "https://github.com/konveyor-ecosystem/customer-portal"
     mta.konveyor.io/assigned-developer: "user:default/dev-chen"
     mta.konveyor.io/status: Post-remediation
@@ -67,6 +70,7 @@ metadata:
   name: notification-hub
   description: Java EE notification service with JMS messaging being migrated from EAP 7 to EAP 8
   annotations:
+    konveyor.io/application-id: "4"
     mta.konveyor.io/status: Completed
     mta.konveyor.io/issues-count: "0"
     mta.konveyor.io/critical-issues: "0"

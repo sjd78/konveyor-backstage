@@ -5,6 +5,7 @@ import { InfoCard, WarningPanel } from '@backstage/core-components';
 import { ACTION_TIMEOUT_MS } from '../../utils';
 import { useMtaStore } from '../../store/MtaStore';
 import { SUPPORT_CONTACT } from '../../store/mockData';
+import type { KonveyorApplication } from '../../api/types';
 import type { MtaApplication } from '../../types';
 
 const TITLE_BY_ERROR_TYPE: Record<string, string> = {
@@ -12,20 +13,27 @@ const TITLE_BY_ERROR_TYPE: Record<string, string> = {
   'repo-access-denied': 'Repository access denied',
 };
 
+export interface PhaseFailedProps {
+  app?: KonveyorApplication | MtaApplication;
+  store?: ReturnType<typeof useMtaStore>;
+  error?: Error | null;
+  errorType?: string;
+  errorMessage?: string;
+  onRetry?: () => void;
+}
+
 export function PhaseFailed({
   app,
   store,
-  errorType,
+  error,
+  errorType = '',
   errorMessage,
-}: {
-  app: MtaApplication;
-  store: ReturnType<typeof useMtaStore>;
-  errorType: string;
-  errorMessage: string;
-}) {
+  onRetry,
+}: PhaseFailedProps) {
   const title = TITLE_BY_ERROR_TYPE[errorType] ?? 'Analysis failed';
 
   const message =
+    error?.message ||
     errorMessage ||
     'The analysis engine encountered an error. Try again or contact your administrator.';
 
@@ -38,38 +46,31 @@ export function PhaseFailed({
         <InfoCard title="Error details">
           <Box
             p={2}
+            bgcolor="action.hover"
             borderRadius={4}
-            bgcolor="background.paper"
-            border={1}
-            borderColor="divider"
-            style={{
-              fontFamily: 'monospace',
-              fontSize: '0.8rem',
-              lineHeight: 1.6,
-            }}
+            fontFamily="monospace"
+            fontSize="0.8rem"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
           >
             <Typography
-              variant="body2"
-              color="error"
-              style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
-            >
-              ERROR: Analysis engine failed at step 3/4
-            </Typography>
-            <Typography
-              variant="body2"
+              variant="caption"
               color="textSecondary"
-              style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
+              style={{ display: 'block', marginBottom: 8 }}
             >
-              {'  '}at RuleEngine.analyze(rules.java:142)
+              Exit code 1 — Analyzer process terminated unexpectedly
             </Typography>
             <Typography
               variant="body2"
-              style={{
-                fontFamily: 'inherit',
-                fontSize: 'inherit',
-                color: 'inherit',
-              }}
+              component="div"
+              style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
             >
+              [ERROR] Failed to execute goal
+              org.konveyor:analyzer-maven-plugin:analyze
+              <br />
+              [ERROR] Failed to parse AST for source tree
+              <br />
+              [ERROR] {message}
+              <br />
               <Box component="span" color="warning.main">
                 Caused by: OutOfMemoryError: heap space exhausted
               </Box>
@@ -78,21 +79,24 @@ export function PhaseFailed({
         </InfoCard>
       )}
       <Box mt={2} display="flex" alignItems="center" style={{ gap: 8 }}>
-        {!errorType && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => {
-              store.updateApplication(app.id, { status: 'Analysis' });
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => {
+            if (onRetry) {
+              onRetry();
+            } else if (store && app) {
+              store.updateApplication(String(app.id), { status: 'Analysis' });
               setTimeout(
-                () => store.executeAction(app.id, 'run-analysis', 'architect'),
+                () =>
+                  store.executeAction(String(app.id), 'run-analysis', 'architect'),
                 ACTION_TIMEOUT_MS,
               );
-            }}
-          >
-            Re-run analysis
-          </Button>
-        )}
+            }
+          }}
+        >
+          Re-run analysis
+        </Button>
         <Typography variant="body2" color="textSecondary">
           If the problem continues, contact{' '}
           <strong>{SUPPORT_CONTACT.name}</strong> ({SUPPORT_CONTACT.email}).

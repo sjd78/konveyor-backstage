@@ -7,28 +7,31 @@ import { InfoCard } from '@backstage/core-components';
 import { DEPLOYMENT_ASSETS } from '../../store/MtaStore';
 import { useStyles } from '../shared/migrationTabStyles';
 import { ActionHistory } from '../shared/ActionHistory';
+import type { KonveyorApplication } from '../../api/types';
 import type {
   MtaApplication,
   ActionHistoryEntry,
   MigrationIssue,
 } from '../../types';
 
+export interface PhaseCompletedProps {
+  app: KonveyorApplication | MtaApplication;
+  issues: MigrationIssue[];
+  actions?: ActionHistoryEntry[];
+}
+
 export function PhaseCompleted({
   app,
-  actions,
+  actions = [],
   issues,
-}: {
-  app: MtaApplication;
-  actions: ActionHistoryEntry[];
-  issues: MigrationIssue[];
-}) {
+}: PhaseCompletedProps) {
   const classes = useStyles();
   const completedIssues = issues.filter(i => i.resolved);
   const autoFixed = completedIssues.filter(i => i.aiFixAvailable).length;
   const manualFixed = completedIssues.length - autoFixed;
   const totalFixed = issues.length
     ? completedIssues.length
-    : app.totalIssuesDiscovered;
+    : ('totalIssuesDiscovered' in app ? (app as MtaApplication).totalIssuesDiscovered : issues.length);
   const hasAssets = actions.some(
     action =>
       action.action === 'generate-deployment-assets' &&
