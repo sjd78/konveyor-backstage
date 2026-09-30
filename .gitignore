@@ -54,3 +54,8 @@ e2e-test-report/
 
 # Cache
 .cache/
+
+# VSCode (and other IDEs)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.sample.json
