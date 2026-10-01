@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Header, Content, Page, WarningPanel } from '@backstage/core-components';
-import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
+import { Header, Content, Page, WarningPanel, ContentHeader } from '@backstage/core-components';
+import { configApiRef, discoveryApiRef, useApi } from '@backstage/core-plugin-api';
 import type { SignInPageProps } from '@backstage/plugin-app-react';
-import { Card, CardHeader, CardBody, Flex, Text } from "@backstage/ui";
+import { Card, CardHeader, CardBody, Flex, Text, Badge } from "@backstage/ui";
 
 import { signInDevUser } from '../utils/user-identity';
 import { useFetchDevUsers, DevUser } from '../hooks/useFetchDevUsers';
@@ -19,12 +19,22 @@ const DevUserCard = ({ user, signingIn, onSelect }: { user: DevUser, signingIn: 
         </CardHeader>
         <CardBody>
           <Text variant="body-medium">{user.userEntityRef}</Text>
+          {user.memberOf && user.memberOf.length > 0 && (
+            <Flex gap="xs" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
+              {user.memberOf.map(group => (
+                <Badge key={group.groupEntityRef} size="small">
+                  {group.displayName}
+                </Badge>
+              ))}
+            </Flex>
+          )}
         </CardBody>
     </Card>
   );
 };
 
 export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
+  const configApi = useApi(configApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const [error, setError] = useState<string>();
   const [signingIn, setSigningIn] = useState(false);
@@ -46,29 +56,29 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
 
   return (
     <Page themeId="tool">
-      <Header title="Select a dev user for testing" />
+      <Header title={configApi.getString('app.title')} />
 
       {showError && (
         <WarningPanel title={`Error: ${showError}`} />
       )}
 
-      {loading ? (
-        <Content>
+      <Content>
+        <ContentHeader title="Select a Dev User" />
+
+        {loading ? (
           <Flex direction="column">
             <Flex align="center" justify="center">
               <Text>Loading...</Text>
             </Flex>
           </Flex>
-        </Content>
-      ) : (
-      <Content>
-        <Flex align="center" justify="center">
-        {users.map(user => (
-          <DevUserCard key={user.userEntityRef} user={user} signingIn={signingIn} onSelect={() => handleSelect(user)} />
-        ))}
-        </Flex>
+        ) : (
+          <Flex justify="center" style={{ flexWrap: 'wrap', maxWidth: '1150px', margin: '0 auto' }}>
+          {users.map(user => (
+            <DevUserCard key={user.userEntityRef} user={user} signingIn={signingIn} onSelect={() => handleSelect(user)} />
+          ))}
+          </Flex>
+        )}
       </Content>
-      )}
     </Page>
   );
 }

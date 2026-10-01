@@ -3,4 +3,4 @@ export {
   authDevUsersModule as default,
 } from './module';
 export { DevUserSignInPage } from './components/DevUserSignInPage';
-export type { DevUser } from './components/DevUserSignInPage';
+export type { DevUser, DevUserGroup } from './hooks/useFetchDevUsers';

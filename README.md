@@ -11,8 +11,6 @@ This repository hosts static Backstage plugins that connect application migratio
 - Self-service application registration template via Backstage Scaffolder.
 - In-memory MTA Hub simulator with periodic catalog synchronization.
 
----
-
 ## Repository Layout
 
 ```
@@ -43,8 +41,6 @@ static-backstage/
     └── mta-template/template.yaml                         # Software Template: mta-register-application
 ```
 
----
-
 ## Plugin Details
 
 | Plugin / Module | Type | System Role | Primary APIs & Extension Points |
@@ -62,8 +58,6 @@ static-backstage/
 - `mta.konveyor.io/discovered-tags`: Discovered technologies JSON string (e.g. `["JPA entities", "Java EE JSON-P"]`).
 - `mta.konveyor.io/assigned-developer`: Assigned developer user entity reference.
 - `mta.konveyor.io/root-path`: Subdirectory path for monorepo applications.
-
----
 
 ## Quick Start
 
@@ -97,15 +91,11 @@ Starts:
 4. **Prototype Scope Bar:** Use the top bar to switch personas (`Application Architect` / `Corporate Developer`) or override migration lifecycle state (`Not Started`, `Discovery`, `Path Selection`, `Analysis`, `Active`, `Completed`, `Failed`).
 5. **Software Templates:** Navigate to **Create** (`/create`) to view and run the **Register application for migration** template.
 
---
-
 ## UI Design System
 
 - [Designing for Backstage](https://backstage.io/docs/dls/design)
 - [Backstage components storybook](https://backstage.io/storybook) - `@backstage/core-components`
 - Backstage v1.10 design system builds on top of [Material UI](https://material-ui.com/)
-
---
 
 ## References
 

@@ -68,7 +68,7 @@ export class DevUserIdentity implements IdentityApi {
 
   private async fetchSession(): Promise<SessionResponse> {
     const base = await this.discoveryApi.getBaseUrl('auth');
-    const res = await fetch(`${base}/guest/refresh`, {
+    const res = await fetch(`${base}/devUsers/refresh`, {
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
         'X-User-Entity-Ref': this.userEntityRef,
@@ -93,7 +93,7 @@ export const signInDevUser = async (user: DevUser, discoveryApi: DiscoveryApi) =
 
   try {
     const baseUrl = await discoveryApi.getBaseUrl('auth');
-    const res = await fetch(`${baseUrl}/guest/refresh`, {
+    const res = await fetch(`${baseUrl}/devUsers/refresh`, {
       headers: {
         'X-User-Entity-Ref': user.userEntityRef,
       },

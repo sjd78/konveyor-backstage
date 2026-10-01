@@ -1,60 +1,4 @@
 apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: user
-spec:
-  memberOf: [rhdh-team]
-
----
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: guest
-  namespace: development
-spec:
-  memberOf: [default/rhdh-team]
-
----
-
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: dcohen213
-spec:
-  memberOf: [rhdh-team]
-
----
-
-apiVersion: backstage.io/v1alpha1
-kind: Group
-metadata:
-  name: rhdh-team
-  title: RHDH team
-spec:
-  type: team
-  children: []
-
----
-
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: sarah-architect
-spec:
-  memberOf: [group:default/mta-architects]
-
----
-
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: dev-chen
-spec:
-  memberOf: [group:default/mta-developers]
-
----
-
-apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
   name: mta-architects
@@ -65,7 +9,6 @@ spec:
   members: [user:default/sarah-architect]
 
 ---
-
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
@@ -75,3 +18,66 @@ spec:
   type: team
   children: []
   members: [user:default/dev-chen]
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-team
+  title: RHDH team
+spec:
+  type: team
+  children: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: user
+  title: RHDH Team User
+spec:
+  memberOf: [rhdh-team]
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: guest
+  namespace: development
+  title: RHDH Team Guest (development namespace)
+spec:
+  memberOf: [default/rhdh-team]
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: dcohen213
+spec:
+  memberOf: [rhdh-team]
+
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: sarah-architect
+spec:
+  profile:
+    displayName: Sarah (Architect)
+  memberOf: [group:default/mta-architects]
+
+---
+
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: dev-chen
+spec:
+  profile:
+    displayName: Chen (Developer)
+  memberOf: [group:mta-developers]
+
+---
+

@@ -113,6 +113,10 @@ backend:
       - matchers:
           type: incomingRequest
         level: warn
+      - matchers:
+          plugin: auth
+        level: debug
+
   # Used for enabling authentication, secret is shared by all backend plugins
   # See https://backstage.io/docs/auth/service-to-service-auth for
   # information on the format
@@ -178,13 +182,15 @@ techdocs:
 auth:
   # see https://backstage.io/docs/auth/ to learn about auth providers
   providers:
+    devUsers:
+      enabled: true
     # See https://backstage.io/docs/auth/guest/provider
-    guest:
-      users:
-        - userEntityRef: user:default/sarah-architect
-          displayName: Sarah (Architect)
-        - userEntityRef: user:default/dev-chen
-          displayName: Chen (Developer)
+    # guest:
+    #   users:
+    #     - userEntityRef: user:default/sarah-architect
+    #       displayName: Sarah (Architect)
+    #     - userEntityRef: user:default/dev-chen
+    #       displayName: Chen (Developer)
 
   # see https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
   # to learn more about client id metadata documents

@@ -4,9 +4,16 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 
+export interface DevUserGroup {
+  groupEntityRef: string;
+  displayName: string;
+}
+
 export interface DevUser {
   userEntityRef: string;
   displayName: string;
+  /** Groups this user belongs to, with resolved display names. */
+  memberOf?: DevUserGroup[];
 }
 
 /**

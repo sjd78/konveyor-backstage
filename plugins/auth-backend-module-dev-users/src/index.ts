@@ -6,4 +6,4 @@
  */
 
 export { authModuleDevUsers, authModuleDevUsers as default } from './module';
-export type { DevUser } from './module';
+export type { DevUser, DevUserGroup } from './types';

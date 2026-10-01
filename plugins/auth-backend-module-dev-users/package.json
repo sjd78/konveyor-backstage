@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@backstage/backend-plugin-api": "^1.10.1",
+    "@backstage/catalog-client": "^1.16.2",
+    "@backstage/catalog-model": "^1.7.3",
     "@backstage/plugin-auth-node": "^0.7.6",
     "express": "^4.14.0"
   },
