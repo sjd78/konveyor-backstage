@@ -13,7 +13,12 @@ import {
   SignInResolver,
 } from '@backstage/plugin-auth-node';
 import { CatalogClient } from '@backstage/catalog-client';
-import { getCatalogUserRefs, getCatalogUsers } from './users';
+import {
+  catalogUsersReady,
+  getCatalogUserRefs,
+  getCatalogUsers,
+  warmupCatalogUsers,
+} from './users';
 
 /**
  * Custom auth backend module that replaces the stock guest provider.
@@ -46,8 +51,15 @@ export const authModuleDevUsers = createBackendModule({
         const logger = parentLogger.child({ module: 'dev-users' });
         const catalogClient = new CatalogClient({ discoveryApi: discovery });
 
+        // Start background warmup — polls the catalog until User entities
+        // are ingested, then populates the user cache.
+        warmupCatalogUsers({ auth, catalogClient, logger });
+
         const router = Router();
         router.get('/dev-users', async (_req, res) => {
+          // Wait for the warmup to finish so the first request doesn't
+          // return fallback users while the catalog is still ingesting.
+          await catalogUsersReady;
           const users = await getCatalogUsers({ auth, catalogClient, logger });
           res.json({ users });
         });

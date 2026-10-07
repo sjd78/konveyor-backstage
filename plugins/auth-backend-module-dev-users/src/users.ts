@@ -10,8 +10,59 @@ const FALLBACK_USERS: DevUser[] = [
 
 const CACHE_TTL_MS = 30_000;
 
+/** Max attempts when warming the cache at startup */
+const WARMUP_MAX_ATTEMPTS = 30;
+/** Delay between warmup retries */
+const WARMUP_RETRY_MS = 2_000;
+
 let cachedUsers: DevUser[] | undefined;
 let cacheExpiry = 0;
+
+let warmupResolve: (() => void) | undefined;
+
+/**
+ * Promise that resolves once the catalog user cache has been warmed
+ * (i.e. at least one successful fetch returned real users), or when
+ * the warmup gives up after max retries.
+ */
+export const catalogUsersReady: Promise<void> = new Promise(resolve => {
+  warmupResolve = resolve;
+});
+
+/**
+ * Starts a background loop that polls the catalog until User entities
+ * are available, then warms the cache and resolves `catalogUsersReady`.
+ *
+ * Call this once during module init — callers that need users (e.g. the
+ * `/dev-users` endpoint) should `await catalogUsersReady` first.
+ */
+export async function warmupCatalogUsers(opts: {
+  auth: AuthService;
+  catalogClient: CatalogClient;
+  logger: LoggerService;
+}): Promise<void> {
+  const { logger } = opts;
+
+  for (let attempt = 1; attempt <= WARMUP_MAX_ATTEMPTS; attempt++) {
+    await getCatalogUsers(opts);
+    if (cachedUsers && cachedUsers.length > 0) {
+      logger.info(
+        `Catalog user cache warmed with ${cachedUsers.length} user(s) after ${attempt} attempt(s)`,
+      );
+      warmupResolve?.();
+      return;
+    }
+    logger.debug(
+      `Warmup: catalog users not yet available, retrying in ${WARMUP_RETRY_MS}ms (attempt ${attempt}/${WARMUP_MAX_ATTEMPTS})`,
+    );
+    await new Promise(r => setTimeout(r, WARMUP_RETRY_MS));
+  }
+
+  logger.warn(
+    'Warmup: catalog users not available after max retries; requests will use fallback users until the catalog is ready',
+  );
+  warmupResolve?.();
+}
 
 export async function getCatalogUsers({ auth, catalogClient, logger }: { auth: AuthService, catalogClient: CatalogClient, logger: LoggerService }): Promise<DevUser[]> {
   const now = Date.now();
