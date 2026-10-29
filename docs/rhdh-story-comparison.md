@@ -1,0 +1,140 @@
+# RHDH prototype stories versus the live Backstage implementation
+
+Comparison date: 2026-10-29.
+
+## Scope and evidence
+
+- **Original prototype:** RHDH at `http://localhost:7008`, authenticated as Guest. The top control bar selected **MTA 8.3 (Current)** (`core`), then Application Architect or Corporate Developer. Changing that persona does not change the underlying Guest identity.
+- **Our implementation:** normal Backstage at `http://localhost:3000`, using Sarah/Chen development identities and the real operator-managed Hub through `http://192.168.39.162/hub`. There is no prototype phase control bar.
+- **Requirements:** the six Jira issues linked by the original core toolbar were retrieved from Jira, including their descriptions and acceptance criteria. The original source repository was inspected read-only at `/home/sdickers/projects/uxd_mta-for-rhdh`.
+- **Recordings:** actual browser interactions, not screenshots assembled to imply execution. Short presentation pauses make controls readable. RHDH state changes made with the toolbar are visible and explicitly described as mock state selection.
+
+The prototype demonstrates UX intent. Its selected Discovery and Analysis progress screens do not finish automatically; the toolbar must select Path Selection and Active. Generated-file success messages and the Dev Spaces destination are simulated. They are not evidence of a Git commit, deployment, live analysis, or a working IDE.
+
+## The six base Jira stories
+
+These are the issues actually linked in the **MTA 8.3 (Current)** toolbar, rather than an inferred backlog.
+
+| Jira story | Persona and user story | Original prototype interaction |
+|---|---|---|
+| [DTUX-2888 — Migration Tab onboarding](https://redhat.atlassian.net/browse/DTUX-2888) | As an architect, register an application or onboard an existing catalog Component, discover its technologies, and select a sanctioned migration path. | Software Template takes repository URL/root path, registers with the mock Hub, waits for catalog sync, and links to Migration. An existing Component offers Start discovery. Mock discovery shows progress, technology chips, a matched archetype, and path cards. Developer empty state has no onboarding CTA. |
+| [DTUX-2890 — Analysis dashboard](https://redhat.atlassian.net/browse/DTUX-2890) | As an architect or developer, inspect migration issues and technology context, understand why each issue matters and how to fix it, monitor/re-run analysis, and diagnose errors. | Unified core dashboard with severity/category/file table; expandable Problem / Why it matters / How to fix; analysis progress; three selectable failure types, support contact, and retry. The core action strip is shared by both personas. |
+| [DTUX-2901 — Asset generation](https://redhat.atlassian.net/browse/DTUX-2901) | As an architect, generate deployment assets associated with the application's migration target so developers can prepare deployment. | Generate deployment assets dialog previews Dockerfile, pipeline, Deployment, Service, and Route. Delivery options are branch, pull request, or archive. Generate shows a simulated five-file success summary and next steps. |
+| [DTUX-2911 — Dev Spaces launch](https://redhat.atlassian.net/browse/DTUX-2911) | As an architect or developer, open a configured cloud IDE from the Migration tab. | Both personas see Open in Dev Spaces. The core link opens a new tab with `#devspaces-placeholder`; the ticket explicitly permits a placeholder in the prototype. |
+| [DTUX-2925 — Home migration cards](https://redhat.atlassian.net/browse/DTUX-2925) | As an architect, navigate directly to migration applications; as a developer, find active assigned migration work. | Architect card lists application/status links and a registration CTA. Developer card shows assigned work only in Active/Post-remediation and otherwise an empty-work message. |
+| [DTUX-3071 — Ownership and assignment](https://redhat.atlassian.net/browse/DTUX-3071) | As an architect, see my directly/group-owned portfolio; as a developer, see applications explicitly assigned to my identity, including applications originating through native catalog import. | Source/Jira specify current identity `ownershipEntityRefs` with OR ownership matching, and an `assigned-developer` annotation for developers. The seeded inventory-service appears for Guest; persona changes are UI-only, not user authentication. |
+
+The core parent epic is [DTUX-2885](https://redhat.atlassian.net/browse/DTUX-2885). A Jira checkbox is design/story evidence, not proof that the current running prototype or our repository satisfies the criterion.
+
+## Per-story mapping to our repository
+
+**Live** means a real Hub-backed implementation was exercised. **Partial** means meaningful functionality exists but the entire Jira story is not met. **Missing** means the prototype action is not offered as a working feature here. Retaining a mock package does not count as a live implementation.
+
+| Original story / acceptance area | Mapping here | Implementing code or missing boundary |
+|---|---|---|
+| DTUX-2888: register from Software Template, sync into catalog, link to Migration | **Missing live wizard flow.** The old action/provider remain mock-backed and the live development overlay does not load that registration template. | `scaffolder-backend-module-mta-actions` and `catalog-backend-module-mta-entity-provider` await Phase 4 cutover. |
+| DTUX-2888: inline onboarding of an unconnected catalog Component | **Partial.** The tab is available on Components and explains the missing ID, but does not register/connect the application in place. | `mta` / `PhaseNotStarted`; live catalog connections currently come from `dev/konveyor/sync-catalog.mjs`. Explicit import/connect workflows are Phase 2a work. |
+| DTUX-2888: discover technologies for a connected application | **Live.** Creates/submits real discovery work, polls Hub task state/activity, reloads tags/profiles. | `mta` migration/actions/polling hooks; `mta-backend` discovery route and `KonveyorClient`; Hub addon execution. No fabricated step completion. |
+| DTUX-2888: archetype and sanctioned path/profile selection | **Partial, with real execution.** Shows discovered tags and effective Hub analysis profiles, submits the selected numeric profile ID. Does not reproduce the prototype's matched-archetype description and target/generator card layout. | `PhasePathSelection`, `/applications/:id/analysis/profiles`, backend analyzer submission. |
+| DTUX-2890: analysis progress and re-analysis | **Live.** Real queued/blocked/running/terminal tasks, persisted profile ID, retry, navigation/reload recovery. | `useKonveyorMigration`, `useMtaAnalysis`, shared `migrationState`, `mta-backend` task endpoints. |
+| DTUX-2890: issue table and expandable details | **Partial UX parity; live data.** Actual incident locations, messages, code snippets, rule effort and links replace hard-coded issues. The prototype's curated three-part problem/impact/fix narrative and active-screen technology context are not fully reproduced. | `PhaseActive`, `IssueDetailPanel`, `useKonveyorData`, insights/incidents proxy endpoints. |
+| DTUX-2890: failures, support, and retry | **Partial.** Actual task/API failures and retry are live. The prototype's three standardized error categories and configurable support-team contact are not implemented as equivalent UX. | `PhaseFailed`, error panels, HTTP-status preservation in `mta-backend`/`MtaApiClient`. |
+| DTUX-2901: deployment asset generation and delivery | **Missing.** No real generator invocation, artifact preview/delivery, PR, branch, or archive flow. The simulated dialogs were removed. | Hub generator availability alone is not an integration. Requires a future user-attributed generator and artifact-delivery flow. |
+| DTUX-2911: Dev Spaces launch | **Missing.** No launch CTA or real workspace integration. The old placeholder/mock workspace UI was removed. | Requires configured Dev Spaces destination and appropriate application context. |
+| DTUX-2925: portfolio shortcuts and statuses | **Live core functionality, partial full story.** Home cards navigate to annotated Components using real task/findings summaries and expose errors, but no live registration CTA flow exists. | `MtaHomeCards`, `useMtaHomeData`, Backstage Catalog, `mta-backend`; New Frontend System HomePageWidgetBlueprint instead of RHDH dynamic mount points. |
+| DTUX-2925: developer active-work filtering | **Different behavior.** We show all assigned catalog applications, including discovery, failed, and analysis states—not only Active/Post-remediation. | Deliberate current behavior in `useMtaHomeData`; do not mark exact acceptance parity. |
+| DTUX-3071: architect ownership isolation | **Partial.** Current filtering is the fixed `group:default/mta-architects`, not the current user's full ownership-ref OR query. All architects in that group share the portfolio. | `useMtaHomeData`; individual/direct/group ownership isolation remains a gap. |
+| DTUX-3071: developer assignment and unknown persona | **Live assignment filtering.** Chen sees his annotation-assigned applications; an unknown role gets no architect portfolio. Not Hub RBAC. | `usePersonaRole`, `useMtaHomeData`, Catalog assignment metadata and development auth packages. |
+| DTUX-3071: automatic catalog continuity after registration/import | **Partial/dev-only.** Startup snapshots real Hub inventory and preserves numeric associations; it is not live scheduled production ingestion or an explicit user import flow. | `dev/konveyor/sync-catalog.mjs` and development overlay. Native-import ownership continuity is not demonstrated end-to-end. |
+
+### Important behavioral differences
+
+- RHDH core shows a unified action strip to architect and developer; our mutation controls are architect-only. This is a UI policy difference, not enforced Hub authorization while auth is disabled.
+- Our real task state, selected profile, analysis metadata, and findings survive navigation and host restart without a phase selector. The prototype changes mock/session/local-storage state.
+- Zero findings is not migration sign-off. We do not implement Completed or Post-remediation as a real workflow.
+- The mock registration recording created `coolstore` with a UUID Hub-mock ID and a catalog link. Its rendered owner was `user:guest`, whereas the session's seeded component used `user:development/guest`. This runtime namespace discrepancy means the ownership criterion must not be assumed satisfied for wizard-created entities merely because the wizard completed.
+
+## Optional prototype scopes: not base-story parity
+
+The toolbar also offers Agentic Workflow, Dev & Architect Experience, and Feature Exploration. They are future explorations in the original source, not part of the six core links above.
+
+| Optional linked story | Intended exploration | Mapping here |
+|---|---|---|
+| [DTUX-2892](https://redhat.atlassian.net/browse/DTUX-2892) | AI remediation selection/progress, reviewable diffs, approval/rejection, partial success, quick fixes | Not implemented; mock actions removed. |
+| [DTUX-2906](https://redhat.atlassian.net/browse/DTUX-2906) | Persona-based action visibility and RBAC | UI persona handling exists, but no production permission/Hub OIDC enforcement yet. |
+| [DTUX-2907](https://redhat.atlassian.net/browse/DTUX-2907) | Architect-to-developer handoff | Assignment metadata exists; no structured handoff workflow. |
+| [DTUX-2908](https://redhat.atlassian.net/browse/DTUX-2908) | Feature-exploration reference epic: metrics/progress/action history | Not implemented as a real lifecycle. |
+
+Those optional descriptions are source-linked scope context; the six core ticket descriptions were retrieved directly from Jira. Base recordings intentionally do not represent AI remediation, quick fixes, or completion as core capabilities.
+
+## Our recorded user stories
+
+1. **Architect portfolio and repository discovery:** use the live catalog connection and repository context, start real discovery, observe task activity, and retrieve effective profiles after completion.
+2. **Architect analysis selection and monitoring:** select the real Spring modernization analysis profile, submit a real analyzer task, and observe the terminal outcome and actual persisted findings.
+3. **Findings inspection:** filter real results and expand a mandatory finding to inspect source location, message, snippet, rule effort, and documentation links.
+4. **Developer assigned-work view:** select Chen's development identity, see only assigned applications, open real findings, and observe that architect analysis controls are absent.
+5. **Failure inspection:** open the real missing-branch application, expand the actual Hub failure message, and distinguish it from the RHDH toolbar-selected mock failures.
+
+The live working application is `Backstage Phase 2 Spring`, using `konveyor/example-applications`, branch `main`, path `example-1`. The failure application deliberately references a nonexistent branch. These are real Hub records, not an in-memory substitute for the Hub. `Foo` is not mutated for these recording workflows.
+
+## Recordings
+
+All files are in [docs/demos](demos/). They are screen-only recordings; the story descriptions and chapter guide provide context. The RHDH prototype is visibly identified by its toolbar and Guest identity. Our recording uses Sarah/Chen and normal Backstage with no toolbar.
+
+| Recording | Duration | Coverage |
+|---|---|---|
+| [RHDH base registration](demos/rhdh-base-registration.mp4) | 0:29 | Repository URL → Review → Create → mock registration/catalog sync → View migration status → mock discovery screen |
+| [RHDH base architect](demos/rhdh-base-architect.mp4) | 0:38 | Home shortcut → inline discovery → toolbar-selected path/result states → issue detail → simulated deployment assets → three mock failure/retry variants |
+| [RHDH base developer](demos/rhdh-base-developer.mp4) | 0:18 | Empty active-work home → assigned active application → unified core findings/actions → placeholder Dev Spaces link → developer onboarding restriction |
+| [Live Backstage architect](demos/backstage-live-architect-workflow.mp4) | 2:52 | Real portfolio, discovery/profile refresh, analyzer submit/poll, and live findings inspection; actual analysis waiting time is retained |
+| [Live Backstage developer and failures](demos/backstage-live-developer-findings.mp4) | 0:22 | Identity-based assignments, incident evidence, architect controls absent, and real task failure details |
+| [Live Backstage architect failure/retry](demos/backstage-live-failure-retry.mp4) | 0:19 | Actual Hub error evidence, architect retry, real task polling, and a new failed task for the deliberately invalid branch |
+
+### Original-demo chapters
+
+- **Architect:** 00:00 portfolio; 00:03 existing Component; 00:05 discovery; 00:07 toolbar-selected technologies/paths; 00:10 analysis progress; 00:13 dashboard; 00:15 issue guidance; 00:18 asset preview; 00:24 simulated generation success; 00:26 generic failure; 00:29 repository-access failure; 00:31 no-archetype failure/retry.
+- **Developer:** 00:00 no active assignments; 00:03 active assigned application; 00:05 unified dashboard; 00:08 issue guidance; 00:11 placeholder Dev Spaces click; 00:13 no onboarding CTA.
+- **Registration:** repository entry/review precedes Create; catalog link appears around 00:22, then the application opens in Discovery. The 12-second catalog wait is visible.
+
+### Live-demo chapters and verification
+
+Approximate capture-time offsets; the encoded files include a few seconds of recording lead/trail time.
+
+- **Architect:** 00:00 live portfolio; 00:03 effective profiles/tags; 00:06 real discovery submission; 00:12 actual discovery completion; 00:14 analyzer submission; around 02:05 terminal result and findings; around 02:42 expanded incident evidence. Discovery task **15** and analyzer task **16** both succeeded. Analysis **4** persisted commit `41f4e20bbf71fe318b11b173787aa87ba6281aec` and displayed **48 incident-level finding rows**, including **17 critical**, matching live data.
+- **Developer:** 00:01 identity selection; 00:03 assigned portfolio; 00:07 findings without architect controls; 00:10 incident source evidence; 00:14 actual failure details.
+- **Architect retry:** the existing missing-branch error is expanded, Retry task creates task **17**, and that task actually fails with the Git checkout error. No phase override or fabricated error is used.
+
+All six files were inspected with `ffprobe` and fully decoded with `ffmpeg` without errors. They contain H.264 video at **1440×1000**, without audio. Browser/recording tooling was restarted during preparation; only completed, decoded takes are linked here. Preliminary takes were removed. A terminal refresh briefly rebuilt the live findings table before the final detail expansion; this is shown as observed, not edited into an instantaneous transition.
+
+All three seed files were parsed with a safe YAML loader and checked as lists of Hub application bodies with string repository fields and no allocated IDs or credentials. Only `example-1` was analyzed against the real Hub for these recordings; registration in the original RHDH mock is not evidence that Coolstore or every other seed has been analyzed.
+
+## Reusable development seed YAML
+
+These are lists of actual Hub application request bodies, not scripts or a claim that the Phase 2a loader exists. Select a body, convert that body to JSON, and POST it to the selected UI's `/hub/applications` only when intentionally provisioning. Do not POST the entire surrounding list. There are no allocated Hub IDs, credentials, fabricated findings, task states, or inferred archetype/profile IDs.
+
+| Seed file | Included applications | Caveats |
+|---|---|---|
+| [Example applications](../dev/konveyor/seeds/example-applications.yaml) | `book-server`, `daytrader`, `example-1`, `petclinic`, `seam-booking` | These are the five root folders. `petclinic` is documentation-only at the observed ref, so it is not a runnable Java source seed. DayTrader is Java EE/Liberty, and Seam's minimal POM declares no dependencies. |
+| [Runnable Petclinic source](../dev/konveyor/seeds/petclinic-source.yaml) | `petclinic-legacy-source` from `konveyor/spring-framework-petclinic`, branch `legacy` | Actual source root verified separately; custom rules/profile configuration may be needed. |
+| [Coolstore](../dev/konveyor/seeds/coolstore.yaml) | `coolstore` from `konveyor-ecosystem/coolstore`, branch `main`, repository root | Java EE/EAP monolith, not the separate Quarkus branch; local system-scoped JAR and runtime dependencies are documented in comments. |
+
+Default `main` branches (Petclinic source: `legacy`) are executable repository refs. Observed commit SHAs in comments record provenance, not a reproducibility pin. The installed addon attempts `git pull`, so putting a detached commit SHA in `repository.branch` is not a valid pinning strategy here. Each future analysis still needs a compatible installed profile/ruleset and any required repository/dependency credentials.
+
+## Authentication implications
+
+Interactive portfolio reads, discovery/analysis submission and retry, polling, and findings can use individual Hub access tokens once Phase 3 is implemented. Backstage authentication remains separate. Background catalog snapshots/synchronization and unattended seed preparation need an intentional noninteractive credential strategy, unless redesigned as user-triggered operations. Addon execution uses Hub-internal task/service credentials; submitting a job does not require the browser session to remain open.
+
+Do not use a broad service credential to retry a user's denied request. Assignment filtering and prototype persona controls are not authorization. Asset generation and repository/IDE delivery introduce additional permission boundaries that are not implemented merely by restoring their demo buttons.
+
+## Reproduction and source pointers
+
+Start our live development host with:
+
+```sh
+export MTA_HUB_BASE_URL=http://192.168.39.162
+yarn start
+```
+
+The original RHDH source's scope/ticket definitions are in `dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-mta/src/prototype/PrototypeScopeSwitcher.tsx`; core workflow components are in that plugin's `src/components/`. Its Software Template is `configs/templates/mta-register/template.yaml`. No source/config changes were made in the original repository.
+
+Our executable flow and auth boundaries are also documented in [Phase 2 user stories](phase-2-user-stories.md). The comparative exercise records behavior and gaps; it does not silently implement the missing asset, IDE, import/registration, ownership-isolation, or remediation stories.

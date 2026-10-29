@@ -96,6 +96,8 @@ yarn build:backend
 
 The backend build also builds the bundled frontend. See [Phase 2 user stories](docs/phase-2-user-stories.md) for exercised interactions and future user-versus-system authentication requirements.
 
+For the original prototype requirements, parity gaps, and six recorded walkthroughs, see [RHDH story comparison](docs/rhdh-story-comparison.md). Reusable Hub application request bodies are in [`dev/konveyor/seeds/`](dev/konveyor/seeds/); they do not automatically provision or analyze applications.
+
 ## UI Design System
 
 - [Designing for Backstage](https://backstage.io/docs/dls/design)

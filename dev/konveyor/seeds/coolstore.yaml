@@ -1,0 +1,31 @@
+# Development inventory only: a YAML list containing one Hub application body.
+# Select the item and convert it to JSON for a future POST /hub/applications;
+# do not POST the surrounding list. This file does not perform Hub writes.
+# No IDs, credentials, tags, analysis profiles, tasks, findings, or states are seeded.
+# Checked: 2026-10-28 via GitHub repository metadata, branch, and contents APIs.
+# Repository: https://github.com/konveyor-ecosystem/coolstore
+# Default branch: main
+# Observed main commit: b5752b936f01acd858ca21fd2d3c4f03d3a6321e
+# Keep branch as main: addon git pull requires a named branch rather than a
+# detached commit checkout. This provenance commit does not pin future analyses.
+# Metadata: https://api.github.com/repos/konveyor-ecosystem/coolstore
+# Ref: https://api.github.com/repos/konveyor-ecosystem/coolstore/branches/main
+# Root: https://github.com/konveyor-ecosystem/coolstore/tree/b5752b936f01acd858ca21fd2d3c4f03d3a6321e
+# README: https://github.com/konveyor-ecosystem/coolstore/blob/b5752b936f01acd858ca21fd2d3c4f03d3a6321e/README.md
+# POM: https://github.com/konveyor-ecosystem/coolstore/blob/b5752b936f01acd858ca21fd2d3c4f03d3a6321e/pom.xml
+# An empty repository.path means the repository root; pom.xml and src/ are there.
+# WARNING: main is the Java EE 7 monolith for JBoss EAP 7.4, NOT a Spring Boot
+# sample or the Quarkus migration. Repository metadata describes a separate
+# quarkus branch, which this seed does not select or claim to have verified.
+# README deployment needs PostgreSQL, Keycloak, and JBoss; registering this
+# application does not deploy any of them. The POM also uses a system-scoped
+# lib/audit-logging-library-1.0.0.jar, so dependency analysis must account for it.
+# Choose an installed analyzer/profile appropriate for Java EE separately;
+# compatibility and findings have not been exercised, and no results are promised.
+- name: coolstore
+  description: CoolStore Java EE 7 monolith on the default main branch, with Maven WAR packaging for JBoss EAP 7.4.
+  repository:
+    kind: git
+    url: https://github.com/konveyor-ecosystem/coolstore.git
+    branch: main
+    path: ""
