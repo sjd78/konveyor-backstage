@@ -158,7 +158,7 @@ sequenceDiagram
     FE-->>User: Render Migration Issues & Incidents
 ```
 
-### Auth Configuration in `app-config.yaml` (Phase 3)
+### Auth Configuration in `dev-host/app-config.yaml` (Phase 3)
 
 ```yaml
 auth:
@@ -557,7 +557,7 @@ Missing/deleted applications, invalid annotations, and API/network/permission fa
 
 `plugins/mta/src/hooks/usePersonaRole.ts` derives the view from `identityApiRef.getBackstageIdentity().ownershipEntityRefs`. Exact membership in `group:default/mta-architects` selects the architect view; otherwise exact membership in `group:default/mta-developers` selects the developer view. Missing or failed identity resolution returns `unknown` with no architect controls. This is a UI persona selector, not an authorization policy.
 
-For local development, `app-config.yaml` selects `user:default/sarah-architect` as the guest identity. Restart with `APP_CONFIG_auth_providers_guest_userEntityRef=user:default/dev-chen` to view the developer persona; the guest provider does not expose an in-app user picker.
+For local development, `dev-host/app-config.yaml` selects `user:default/sarah-architect` as the guest identity. Restart with `APP_CONFIG_auth_providers_guest_userEntityRef=user:default/dev-chen` to view the developer persona; the guest provider does not expose an in-app user picker.
 
 ---
 
@@ -696,8 +696,8 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 |---|---|---|---|---|
 | 1.1 | Remove prototype scope switcher and phase state harness | Delete `plugins/mta/src/prototype/`, remove its mount from `alpha.tsx`, and remove all scope/persona/global-phase imports and overrides. Keep application state transitions in the store rather than global `localStorage` overrides. | `plugins/mta/src/prototype/*`<br>`plugins/mta/src/alpha.tsx`<br>`plugins/mta/src/components/*` | remove |
 | 1.2 | Preserve runnable demo transitions | Keep `MtaStore.tsx`, `mockData.ts`, and demo delays. Advance seed applications through discovery, analysis, issues, remediation, and completion via normal UI actions; poll mock-registered applications for discovery/failure. Home cards show per-application status, including local demo transitions. | `plugins/mta/src/store/*`<br>`plugins/mta/src/components/**` | modify |
-| 1.3 | Retain the mock Hub and its registration consumers | Keep `mta-mock-hub-backend`, the catalog provider, scaffolder action, and template wired together. Give generated entities stable ID-suffixed names to avoid colliding with seeded components; keep template links aligned to those names and map mock status/errors into catalog annotations. Retire this backend only after the Phase 4 consumer cutover. | `plugins/mta-mock-hub-backend/*`<br>`plugins/catalog-backend-module-mta-entity-provider/src/module.ts`<br>`plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`examples/mta-template/template.yaml` | retain/modify |
-| 1.4 | Set up dev catalog users and groups for personas | Add `user:default/sarah-architect` and `user:default/dev-chen` in `mta-architects` and `mta-developers`. Assign the portfolio to the architect group and selected applications to the developer. Configure the development guest user's `userEntityRef` per run; the guest provider has no in-app account picker. | `examples/mta-users.yaml`<br>`examples/mta-components.yaml`<br>`app-config.yaml` | modify |
+| 1.3 | Retain the mock Hub and its registration consumers | Keep `mta-mock-hub-backend`, the catalog provider, scaffolder action, and template wired together. Give generated entities stable ID-suffixed names to avoid colliding with seeded components; keep template links aligned to those names and map mock status/errors into catalog annotations. Retire this backend only after the Phase 4 consumer cutover. | `plugins/mta-mock-hub-backend/*`<br>`plugins/catalog-backend-module-mta-entity-provider/src/module.ts`<br>`plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`dev-host/data/catalog/konveyor/mta-template.yaml` | retain/modify |
+| 1.4 | Set up dev catalog users and groups for personas | Add `user:default/sarah-architect` and `user:default/dev-chen` in `mta-architects` and `mta-developers`. Assign the portfolio to the architect group and selected applications to the developer. Configure the development guest user's `userEntityRef` per run; the guest provider has no in-app account picker. | `dev-host/data/catalog/konveyor/mta-users.yaml`<br>demo Components fixture *(since deleted)*<br>`dev-host/app-config.yaml` | modify |
 | 1.5 | Replace persona toggle with catalog group membership checks | Use exact Backstage identity ownership group refs in `usePersonaRole()`. Architects see the portfolio and analysis controls; developers see assigned components and remediation actions; unknown roles get no architect controls. Scope-gated demo sections become state/persona-driven. These UI views do not enforce RBAC. | `plugins/mta/src/hooks/usePersonaRole.ts`<br>`plugins/mta/src/components/MigrationTab.tsx`<br>`plugins/mta/src/components/MtaHomeCards.tsx`<br>`plugins/mta/src/components/phases/*` | modify |
 
 ---
@@ -719,11 +719,11 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 | 2.1 | Mirror Hub domain models | Implemented `KonveyorApplication`, task/error/lifecycle, analysis/profile/target, insight, and incident contracts using actual Hub responses. Application responses do not embed task IDs. | `plugins/mta-backend/src/service/types.ts`<br>`plugins/mta/src/api/types.ts` | implemented |
 | 2.2 | Implement KonveyorClient backend service (no auth) | Live inventory/pagination, filtered application tasks, effective profiles, JSON analysis metadata/insights/incidents, real discovery/analyzer task creation and submission. The singular analysis endpoint is an archive, not JSON. | `plugins/mta-backend/src/service/KonveyorClient.ts` | implemented |
 | 2.3 | Add live proxy routes | Implemented application, task, profile, analysis, discovery, analyzer, insight, target, and archetype routes; retained `/entity/:name` and meaningful upstream HTTP statuses. | `plugins/mta-backend/src/router.ts`<br>`plugins/mta-backend/src/plugin.ts` | implemented |
-| 2.4 | Configure UI origin | `mta.baseUrl` / `MTA_HUB_BASE_URL` identifies the Konveyor UI origin. The client adds `/hub`; no direct-service or port-forward prerequisite. | `app-config.yaml`<br>`.env.example`<br>`plugins/mta-backend/src/plugin.ts` | implemented |
+| 2.4 | Configure UI origin | `mta.baseUrl` / `MTA_HUB_BASE_URL` identifies the Konveyor UI origin. The client adds `/hub`; no direct-service or port-forward prerequisite. | `dev-host/app-config.yaml`<br>`.env.example`<br>`plugins/mta-backend/src/plugin.ts` | implemented |
 | 2.5 | Implement MtaApiClient frontend service (no auth) | Frontend API client resolves `mta-backend` through `DiscoveryApi`, exposes live application/task/profile/analysis endpoints, and preserves meaningful HTTP errors. No Hub auth token is attached in Phase 2. | `plugins/mta/src/api/MtaApiClient.ts`<br>`plugins/mta/src/api/index.ts` | implemented |
 | 2.6 | Implement reactive task polling | Poll all nonterminal Hub states every 3s; stop on terminal state/error, provide explicit refresh, reject stale responses, restore selected profile/task from Hub history. | `plugins/mta/src/hooks/useMtaAnalysis.ts`<br>`plugins/mta/src/hooks/useKonveyorMigration.ts` | implemented |
 | 2.7 | Complete frontend live-data cutover | Removed the frontend store/mock data and simulated remediation/deployment/completion paths. Home and tab share real phase/finding derivation, actual incident evidence, and fail-closed persona handling. | `plugins/mta/src/hooks/`<br>`plugins/mta/src/components/` | implemented |
-| 2.8 | Align development catalog with live Hub IDs | Startup reads Hub inventory into ignored generated catalog YAML with actual IDs, stable entity names, repository metadata, and development assignments. Phase 2a's separate intentional cohorts/import/reset controls remain planned. | `dev/konveyor/`<br>`package.json` | implemented |
+| 2.8 | Align development catalog with live Hub IDs | Startup reads Hub inventory into ignored generated catalog YAML with actual IDs, stable entity names, repository metadata, and development assignments. Phase 2a's separate intentional cohorts/import/reset controls remain planned. | `dev-host/start/` (`live` scenario)<br>`dev-host/data/assignments.json`<br>`package.json` | implemented |
 
 > **Developer data beyond Phase 2:** The implemented read-only startup snapshot aligns the live development catalog. Phase 2a below extends it with reproducible provisioning and intentional Hub-only, Backstage-only, and matched cohorts, plus manual loading/import/connection/reset controls; those additional workflows remain planned.
 
@@ -731,7 +731,7 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 
 ### Phase 2a — Developer Seed Data & Matched Startup Scenarios
 
-**Status:** Planned beyond the shared live-state paths and read-only startup catalog snapshot implemented in Phase 2. The full cohort seed runner, load/import/connect/reset panel, and `dev:seed` command below are not implemented by the Phase 2 cutover.
+**Status:** Planned beyond the shared live-state paths and read-only startup catalog snapshot implemented in Phase 2. The full cohort seed runner, load/import/connect/reset panel, and seed preparation below are not implemented by the Phase 2 cutover. Scenario preparation now lives in the `yarn start` scenario selector (`dev-host/start/scenarios.mjs`); its `live-seeded` scenario only creates missing seed applications from `dev-host/data/seeds/` (part of 2a.1/2a.2) — no cohorts, analyses, import/connect, or reset panel.
 
 **Summary:** Make the development Backstage instance useful at first glance, with applications that exercise import, connection, and already-connected migration views. Seed real Hub records and real catalog entities, not a frontend mock store or status overrides. Keep all fixture definitions, orchestration, and loading controls in the development host around the publishable plugins.
 
@@ -741,8 +741,8 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 
 - Reach Hub through the Konveyor UI's exposed `/hub` proxy. Set `MTA_HUB_BASE_URL` to the **UI origin**, such as `https://<konveyor-ui-host>`; the existing `KonveyorClient` adds `/hub`. Do not append `/hub` to that variable, require port-forwarding, or introduce a direct Hub service URL.
 - Use that configured target for seeding, inventory reads, import/connection helpers, and runtime plugin requests. The browser calls the Backstage backend; Hub access and provisioning stay server-side.
-- Place the versioned dataset and runner under a proposed `dev/konveyor/` directory. Development adapters belong in `packages/app` and `packages/backend`, not in the public MTA plugin exports. Seed files, write credentials, and loading controls must not enter published plugin artifacts.
-- Enable this dataset explicitly for a designated development Hub. Starting ordinary `yarn start` must not silently populate an arbitrary connected Hub.
+- Keep the versioned dataset under `dev-host/data/` and scenario preparation in `dev-host/start/`. Development adapters belong in `dev-host/app` and `dev-host/backend`, not in the public MTA plugin exports. Seed files, write credentials, and loading controls must not enter published plugin artifacts.
+- Enable Hub writes explicitly for a designated development Hub by selecting a writing scenario (such as `live-seeded`). The `live` and `offline` scenarios of `yarn start` must not populate an arbitrary connected Hub.
 - Retain the old mock Hub only for its existing consumers until Phase 4. Do not mix mock UUIDs, mock statuses, or mock registration results into this live-seeded catalog.
 
 #### Three seed cohorts
@@ -763,7 +763,7 @@ Presence and connection are separate concepts: a catalog Component is connected 
 
 The Hub-only connection candidate and Backstage-only `customer-portal` deliberately share a repository but remain unlinked until selection. All other samples have explicit independent identities. Hub-only samples must remain out of the catalog until an import or connection action; a background importer must not consume them automatically.
 
-Reuse `sarah-architect`, `dev-chen`, `mta-architects`, and `mta-developers` from `examples/konveyor/mta-users.yaml`. Assign the portfolio to the architect group and a subset of connected and unconnected Components to Chen. Architects can inspect the complete development scenario inventory; developers see their assigned catalog applications. Persona views are not authorization.
+Reuse `sarah-architect`, `dev-chen`, `mta-architects`, and `mta-developers` from `dev-host/data/catalog/konveyor/mta-users.yaml`. Assign the portfolio to the architect group and a subset of connected and unconnected Components to Chen. Architects can inspect the complete development scenario inventory; developers see their assigned catalog applications. Persona views are not authorization.
 
 #### Dataset contract and provisioning
 
@@ -773,21 +773,21 @@ Reuse `sarah-architect`, `dev-chen`, `mta-architects`, and `mta-developers` from
 4. **Real execution:** Verify the selected Hub version's task payload, submission operation, task filtering, and lifecycle states. Creating an application is not discovery, and creating an unsubmitted task is not running analysis. Use the discovery/analyzer addons and poll their real results. Look up tasks by application rather than assuming an application response embeds task IDs.
 5. **Stable matching:** Store the scenario-key-to-Hub-ID and entity-ref mapping in generated development state, bound to the selected UI origin and dataset version. Check the referenced record and repository identity before reuse. Reconcile managed records only; reject ambiguous matches instead of guessing or adopting an unrelated application.
 6. **Catalog persistence:** Generate Components using actual returned IDs, canonical repository/source-location annotations, ownership, and assignments. Import and connection actions must update that same authoritative catalog source. Connections must survive a browser reload and a Backstage restart, not live only in React state.
-7. **One catalog writer:** In the seeded development profile, replace the hand-authored `examples/konveyor/mta-components.yaml` location with the generated dataset location; do not load conflicting definitions of the same entity. Re-register that source on each startup because the current development catalog database is in memory. Catalog refresh and read-back determine readiness, not a fixed sleep.
+7. **One catalog writer:** In the seeded development profile, load the generated dataset location (`dev-host/.generated/catalog.yaml`, already the scenario output loaded by `dev-host/app-config.yaml`); the former hand-authored demo Components fixture was deleted. Do not load conflicting definitions of the same entity. Re-register that source on each startup because the current development catalog database is in memory. Catalog refresh and read-back determine readiness, not a fixed sleep.
 8. **Safe repetition:** Loading again must preserve completed imports/connections, avoid duplicate applications/entities, and not rerun successful analyses unnecessarily. Partial preparation reports which scenarios are ready or failed and can resume without recreating successful work. Restoring the initial cohort layout is a separate, explicitly confirmed reset limited to recorded seed-owned resources; never wipe Hub inventory or delete shared targets/generators.
 
 #### Startup and landing-page workflow
 
-Support both a prepare-before-start workflow and manual preparation from the running app. Proposed commands below are part of this phase's deliverable, not currently available commands:
+Support both a prepare-before-start workflow and manual preparation from the running app. Implement the prepare-before-start workflow as scenarios in the `yarn start` selector (`dev-host/start/scenarios.mjs`) rather than separate commands; the behaviors below (originally proposed as `yarn dev:seed` / `yarn dev:start`) are not yet available:
 
-- **`yarn dev:seed`**: Prepare/reconcile the three cohorts against the configured UI origin, run the required initial analyses, and write the generated mapping/catalog source. Exit with a scenario readiness report; a failed scenario must not be presented as ready.
-- **`yarn dev:start`**: Select the seeded development catalog configuration, ensure its source exists, and start Backstage. Rehydrate catalog entities from the mapping; do not reset cohorts or launch new Hub jobs on every restart. If preparation is missing or the Hub has changed, show setup guidance rather than stale connected samples.
+- **Seed preparation**: Prepare/reconcile the three cohorts against the configured UI origin, run the required initial analyses, and write the generated mapping/catalog source. Exit with a scenario readiness report; a failed scenario must not be presented as ready.
+- **Seeded start**: Select the seeded development catalog scenario, ensure its source exists, and start Backstage. Rehydrate catalog entities from the mapping; do not reset cohorts or launch new Hub jobs on every restart. If preparation is missing or the Hub has changed, show setup guidance rather than stale connected samples.
 
 Add a development-only **Sample data** panel to the landing page. Show the selected Hub origin, dataset version, preparation progress, cohort/connection state, actual task state, and per-scenario errors. Once preparation completes, the initial view must show the import candidates, unconnected catalog Components, and matched applications together; Hub-only rows are inventory candidates, not invented catalog entities.
 
 | Control | Required effect |
 |---|---|
-| **Load test data** | Invoke the same runner as `dev:seed`, refresh the catalog and live queries, and report readiness; preserve intentional Hub-only and Backstage-only cohorts |
+| **Load test data** | Invoke the same seed preparation as the `yarn start` scenario, refresh the catalog and live queries, and report readiness; preserve intentional Hub-only and Backstage-only cohorts |
 | **Import from Hub** | Select a Hub-only application, create its Component using the existing Hub ID, and wait until it is readable in the catalog; create no Hub application |
 | **Connect application** | On a Backstage-only Component, explicitly choose an existing Hub candidate or register a new Hub application, then persist the association; create no duplicate Component |
 | **Start discovery / Start analysis** | Submit real work for the selected scenario and display the resulting task lifecycle; leave this manual where the state would otherwise disappear before a developer opens the page |
@@ -811,10 +811,10 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 | Task | Deliverable | Scope |
 |---|---|---|
-| 2a.1 | Versioned manifest, verified repositories, cohort definitions, and persona metadata | Proposed `dev/konveyor/`; existing `examples/konveyor/mta-users.yaml` |
-| 2a.2 | Reusable development seed runner, dependency resolution, real task execution, persistent mapping, and seed-owned reset | Proposed `dev/konveyor/`; reuse `plugins/mta-backend/src/service/KonveyorClient.ts` transport conventions |
-| 2a.3 | Seeded catalog overlay, prepare/start commands, and catalog readiness checks | `package.json`, `packages/backend`, proposed `dev/konveyor/` configuration/generated output |
-| 2a.4 | Landing-page panel with loading, import, connect/register, process, and reset controls | `packages/app/src/modules/home/`; development-only backend adapter |
+| 2a.1 | Versioned manifest, verified repositories, cohort definitions, and persona metadata | Existing `dev-host/data/seeds/` (verified repositories only) and `dev-host/data/catalog/konveyor/mta-users.yaml` |
+| 2a.2 | Reusable development seed runner, dependency resolution, real task execution, persistent mapping, and seed-owned reset | `dev-host/start/scenarios.mjs` (`live-seeded` already creates missing seed applications); reuse `plugins/mta-backend/src/service/KonveyorClient.ts` transport conventions |
+| 2a.3 | Seeded catalog scenario, prepare/start workflow, and catalog readiness checks | `dev-host/start/`, `dev-host/app-config.yaml`, `dev-host/backend`, generated output in `dev-host/.generated/` |
+| 2a.4 | Landing-page panel with loading, import, connect/register, process, and reset controls | `dev-host/app/src/modules/home/`; development-only backend adapter |
 | 2a.5 | Correct persisted associations, task/profile reads, lifecycle handling, and consistent live summaries required by the scenarios | `plugins/mta/src/hooks/`, `plugins/mta/src/components/`, `plugins/mta/src/api/`, `plugins/mta-backend/src/` |
 | 2a.6 | Scenario verification and developer instructions, including restart, repeat-load, and auth failure behavior | `README.md`; existing relevant behavior tests and runtime smoke checks |
 
@@ -844,12 +844,12 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 | Task | Title | Description | Scope (files) | Type |
 |---|---|---|---|---|
-| 3.1 | Configure OIDC auth provider for MTA Hub Keycloak | Add `auth.providers.oidc.mta` configuration block in `app-config.yaml` pointing to Hub's Keycloak OIDC discovery URL. Configure `clientId`, `clientSecret`, scopes (`openid profile email`). Set up PKCE flow. | `app-config.yaml`<br>`app-config.local.yaml` | modify |
+| 3.1 | Configure OIDC auth provider for MTA Hub Keycloak | Add `auth.providers.oidc.mta` configuration block in `dev-host/app-config.yaml` pointing to Hub's Keycloak OIDC discovery URL. Configure `clientId`, `clientSecret`, scopes (`openid profile email`). Set up PKCE flow. | `dev-host/app-config.yaml`<br>`dev-host/app-config.local.yaml` | modify |
 | 3.2 | Register mtaAuthApiRef for user-scoped token acquisition | Create `mtaAuthApiRef` using `createApiRef<OAuthApi & ProfileInfoApi & SessionApi>`. Wire it into the frontend plugin's `createApiFactory` chain so components can call `getAccessToken()` to get the user's Hub bearer token. | `plugins/mta/src/api/auth.ts`<br>`plugins/mta/src/alpha.tsx` | new |
 | 3.3 | Update MtaApiClient to attach user bearer tokens | Modify `MtaApiClient` constructor to accept `mtaAuthApiRef`. `fetchWithAuth()` calls `authApi.getAccessToken()` before each request and attaches `Authorization: Bearer <token>` header. | `plugins/mta/src/api/MtaApiClient.ts` | modify |
 | 3.4 | Update backend proxy to extract and forward user bearer tokens | `TackleClient` constructor now requires the user's bearer token (extracted from `req.headers.authorization`). The `getClient()` factory in `router.ts` validates the header and rejects with `401` if missing. The backend never mints its own tokens for user actions. | `plugins/mta-backend/src/service/TackleClient.ts`<br>`plugins/mta-backend/src/router.ts` | modify |
 | 3.5 | Update scaffolder action to forward user OIDC token | The scaffolder action extracts the user's OAuth token from template execution context (`ctx.secrets?.mtaToken` or Backstage execution token). Passes it to `TackleClient` for `POST /hub/applications`. Applications created in Hub are attributed to the authenticated user. | `plugins/scaffolder-backend-module-mta-actions/src/module.ts` | modify |
-| 3.6 | Configure catalog entity provider with read-only service credentials | The entity provider runs in a scheduled background task without a user session. Configure it with either client-credentials OIDC grant (read-only service account) or annotation-driven ingestion where the scaffolder template commits `catalog-info.yaml` directly. | `plugins/catalog-backend-module-mta-entity-provider/src/module.ts`<br>`app-config.yaml` | modify |
+| 3.6 | Configure catalog entity provider with read-only service credentials | The entity provider runs in a scheduled background task without a user session. Configure it with either client-credentials OIDC grant (read-only service account) or annotation-driven ingestion where the scaffolder template commits `catalog-info.yaml` directly. | `plugins/catalog-backend-module-mta-entity-provider/src/module.ts`<br>`dev-host/app-config.yaml` | modify |
 
 ---
 
@@ -865,7 +865,7 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 | Task | Title | Description | Scope (files) | Type |
 |---|---|---|---|---|
-| 4.1 | Update scaffolder action to POST to live Tackle2 Hub | Update the custom scaffolder action to call `POST /hub/applications` on the real Hub. Output `applicationId`, `applicationName`, `entityRef`. Update the template YAML to pass necessary parameters. | `plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`examples/mta-template/template.yaml` | modify |
+| 4.1 | Update scaffolder action to POST to live Tackle2 Hub | Update the custom scaffolder action to call `POST /hub/applications` on the real Hub. Output `applicationId`, `applicationName`, `entityRef`. Update the template YAML to pass necessary parameters and load it again from `dev-host/app-config.yaml` (it is currently not loaded). | `plugins/scaffolder-backend-module-mta-actions/src/module.ts`<br>`dev-host/data/catalog/konveyor/mta-template.yaml` | modify |
 | 4.2 | Implement catalog entity provider to sync from Tackle2 Hub | `MtaEntityProvider` polls Hub for applications and emits `{ type: 'full', entities }` mutations. Entities get `konveyor.io/application-id`, `mta.konveyor.io/repo-url`, and `backstage.io/source-location` annotations. Status labels update as applications transition states in Hub. | `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify |
 
 > **Mock Hub cutover:** Once both the scaffolder action and catalog provider use the live Hub, remove `plugins/mta-mock-hub-backend/`, its `backend.add()` registration and backend package dependency, then update the lockfile. Do not remove it while either demo consumer still calls it.
@@ -903,7 +903,7 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 | Task | Title | Description | Scope (files) | Type |
 |---|---|---|---|---|
-| 6.1 | Configure environment for live Tackle2 Hub deployment | Set `MTA_HUB_BASE_URL` to live Hub instance. Configure OIDC client credentials. Verify network connectivity from Backstage backend to Hub API. | `app-config.production.yaml`<br>`.env` | new |
+| 6.1 | Configure environment for live Tackle2 Hub deployment | Set `MTA_HUB_BASE_URL` to live Hub instance. Configure OIDC client credentials. Verify network connectivity from Backstage backend to Hub API. | Target deployment's app-config (outside this development-host repository)<br>`.env` | new |
 | 6.2 | Validate dynamic plugins in RHDH container with live Hub | Launch RHDH container (`quay.io/rhdh-community/rhdh:1.10`) with exported dynamic plugins mounted. Run `install-dynamic-plugins.sh`. Verify all plugins load, auth flows work, and migration workflow completes end-to-end. | Deployment config, container compose | new |
 
 ---
@@ -922,12 +922,12 @@ Every file created, modified, or deleted across all phases:
 | `plugins/mta/src/components/MigrationTab.tsx` | modify | 1, 2 | Per-app demo transitions; later consume live API |
 | `plugins/mta/src/components/phases/*` | modify | 1, 2 | Remove scope gates; later consume live API |
 | `plugins/mta/src/hooks/usePersonaRole.ts` | create | 1 | Group-membership persona detection |
-| `examples/mta-users.yaml` | modify | 1 | Named persona users and groups |
-| `examples/mta-components.yaml` | modify | 1, 2 | Persona ownership and demo status; later Hub app alignment |
-| `app-config.yaml` | modify | 1, 2, 3 | Dev guest persona; later Hub URL and OIDC |
+| `dev-host/data/catalog/konveyor/mta-users.yaml` | modify | 1 | Named persona users and groups |
+| Demo Components fixture *(since deleted)* | modify, then delete | 1, 2 | Persona ownership and demo status; replaced by generated scenario catalog |
+| `dev-host/app-config.yaml` | modify | 1, 2, 3 | Dev guest persona; later Hub URL and OIDC |
 | `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify | 1, 4 | Mock persona ownership/status; later live Hub sync |
 | `plugins/scaffolder-backend-module-mta-actions/src/module.ts` | modify | 1, 3, 4 | Mock entity refs; later delegated live registration |
-| `examples/mta-template/template.yaml` | modify | 1, 4 | Link generated demo entity; later live registration |
+| `dev-host/data/catalog/konveyor/mta-template.yaml` | modify | 1, 4 | Link generated demo entity; later live registration |
 | `plugins/mta-backend/src/service/types.ts` | create | 2 | Tackle2 domain model types |
 | `plugins/mta-backend/src/service/TackleClient.ts` | create | 2 | Hub REST client (no auth initially) |
 | `plugins/mta-backend/src/router.ts` | modify | 2, 3 | Add proxy routes; later add auth validation |
@@ -940,10 +940,10 @@ Every file created, modified, or deleted across all phases:
 | `plugins/mta-backend/src/service/TackleClient.ts` | modify | 3 | Require user bearer token |
 | `plugins/mta/package.json` | modify | 5 | Add Scalprum config |
 | `package.json` | modify | 5 | Add `export:dynamic` script |
-| `dev/konveyor/` *(proposed development tooling/data)* | create | 2a | Cohort manifest, runner, generated catalog/mapping, and seeded configuration |
-| `packages/app/src/modules/home/` | modify | 2a | Development-only sample loading, inventory, and scenario controls |
-| `packages/backend` | modify | 2a | Opt-in development adapter; seed endpoints excluded outside development |
-| `package.json`, `README.md` | modify | 2a | Proposed `dev:seed` / `dev:start` commands and verified startup instructions |
+| `dev-host/start/`, `dev-host/data/` *(development tooling/data)* | modify | 2a | Cohort manifest, seed preparation scenarios, generated catalog/mapping |
+| `dev-host/app/src/modules/home/` | modify | 2a | Development-only sample loading, inventory, and scenario controls |
+| `dev-host/backend` | modify | 2a | Opt-in development adapter; seed endpoints excluded outside development |
+| `README.md`, `dev-host/README.md` | modify | 2a | Seed scenario and verified startup instructions |
 | `configs/dynamic-plugins/dynamic-plugins.override.yaml` | create | 5 | RHDH plugin configuration |
 
 ---

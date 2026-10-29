@@ -3,19 +3,17 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": "22 || 24"
   },
   "scripts": {
-    "start": "yarn dev:catalog && backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml",
-    "dev:catalog": "node dev/konveyor/sync-catalog.mjs",
-    "dev:start": "yarn start",
-    "start:frontend": "backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml app",
-    "start:backend": "yarn dev:catalog && backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml backend",
+    "start": "node dev-host/start/index.mjs",
+    "start:frontend": "node dev-host/start/index.mjs app",
+    "start:backend": "node dev-host/start/index.mjs backend",
     "start:tmux": "tmux new-session -s backstage -n backend -d 'yarn start:backend' && tmux new-window -t backstage -n frontend 'yarn start:frontend' && tmux attach -t backstage",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",
-    "build-image": "yarn workspace backend build-image",
     "tsc": "tsc",
     "tsc:full": "tsc --skipLibCheck false --incremental false",
     "clean": "backstage-cli repo clean",
@@ -38,7 +36,8 @@
     }
   },
   "workspaces": [
-    "packages/*",
+    "dev-host/app",
+    "dev-host/backend",
     "plugins/*"
   ],
   "devDependencies": {
@@ -52,7 +51,8 @@
     "jsdom": "^27.1.0",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
-    "typescript": "~5.8.0"
+    "typescript": "~5.8.0",
+    "yaml": "^2.2.2"
   },
   "resolutions": {
     "@types/react": "^18",

@@ -9,24 +9,29 @@ This monorepo wraps reusable Backstage MTA plugins in a local development host:
 - Real technology discovery and profile-based analysis submission, polling, and reload recovery.
 - Migration findings with incident locations, snippets, messages, and documentation links.
 - Catalog-backed architect/developer views; persona selection is not authorization.
-- A development-only startup catalog snapshot using actual Hub application IDs.
+- A development host whose `yarn start` selector chooses the catalog/Hub data for each run.
 
 Phase 2 is unauthenticated and requires an isolated Hub configured for anonymous access. OIDC is not implemented. Production scaffolder registration and continuous catalog ingestion remain separate Phase 4 work; their existing mock-Hub consumers are retained, not used to connect the live development catalog.
 
 ## Repository Layout
 
+This repository is a **development host only**: there is no production Backstage install, deployment config, or container image. The deliverables are the packages in `plugins/`; `dev-host/` wraps them in a realistic local Backstage.
+
 ```text
-packages/app/                  Development frontend, navigation, home, dev-user sign-in
-packages/backend/              Development backend and plugin/module registrations
 plugins/mta/                   Reusable live migration frontend
 plugins/mta-backend/           Hub transport, proxy routes, legacy entity YAML endpoint
 plugins/mta-mock-hub-backend/   Retained legacy registration demo simulator
 plugins/catalog-backend-module-mta-entity-provider/   Mock catalog consumer (Phase 4 cutover)
 plugins/scaffolder-backend-module-mta-actions/        Mock scaffolder consumer (Phase 4 cutover)
-dev/konveyor/                  Read-only live catalog snapshot and development overlay
-examples/konveyor/             Persona users/groups and legacy demo fixtures
-docs/phase-2-user-stories.md    Interactions, data flows, verification, auth boundaries
+plugins/auth-*-dev-users*/     Development persona sign-in (frontend + backend module)
+dev-host/app/, dev-host/backend/   Host frontend/backend packages
+dev-host/app-config.yaml       The single host config
+dev-host/data/                 Static catalog files, Hub seed bodies, developer assignments
+dev-host/start/                `yarn start` scenario selector and catalog generation
+docs/                          Phase 2 user stories, RHDH comparison, demo recordings
 ```
+
+See [`dev-host/README.md`](dev-host/README.md) for host details, scenarios, and adding plugins.
 
 ## Plugin Details
 
@@ -54,26 +59,31 @@ Live task state and finding counts come from Hub, never seeded status/count anno
 
 - Node.js 22 or 24; Yarn 4 (the repository pins Yarn 4.13.0).
 - A running Konveyor UI endpoint whose `/hub` route is reachable from the development host.
-- Existing Hub applications; add them through the Konveyor UI if the inventory is empty.
+- Existing Hub applications, or the `live-seeded` scenario to create the sample applications from `dev-host/data/seeds/`.
 - For analysis, matching archetypes with effective analysis profiles and a runnable analyzer addon.
 
 ```sh
 yarn install
-export MTA_HUB_BASE_URL=http://192.168.39.162
+cp .env.example .env   # set MTA_HUB_BASE_URL to your Konveyor UI origin
 yarn start
 ```
 
-Replace the example origin with your UI endpoint. Do **not** include `/hub`; the client adds it. No port-forward is required. `.env.example` documents the variable; copying it to `.env` does not automatically export it into your shell.
+Do **not** include `/hub` in `MTA_HUB_BASE_URL`; the client adds it. No port-forward is required. `yarn start` loads `.env` itself; an exported shell variable takes precedence.
 
 ### 2. Startup behavior
 
-`yarn start` runs `dev/konveyor/sync-catalog.mjs` before launching the frontend on `http://localhost:3000` and backend on `http://localhost:7007`. The script only reads Hub inventory. It writes ignored `dev/konveyor/catalog.local.yaml`, and the development overlay loads that source instead of hard-coded demo Components/templates.
+`yarn start` asks which data scenario to prepare (Enter keeps the last choice), writes the gitignored `dev-host/.generated/catalog.yaml`, then launches the frontend on `http://localhost:3000` and backend on `http://localhost:7007`. Skip the prompt with `yarn start --scenario <id>`.
 
-Entity names are stable `mta-application-<Hub ID>` values, with the real application name as the title. Edit `dev/konveyor/catalog-assignments.json` to assign applications to catalog users; the supplied validation applications belong to Chen. Other imported applications belong to the architect portfolio without a developer assignment.
+| Scenario | Hub access | MTA Components in the catalog |
+|---|---|---|
+| `live` | Read-only | One connected Component per Hub application |
+| `live-seeded` | Creates missing seed applications (no analysis) | Same as `live`, after provisioning |
+| `live-unconnected` | Read-only | `live` plus seed Components without a Hub ID |
+| `offline` | None | Seed Components without a Hub ID only |
 
-After registering a new application in Hub, restart `yarn start` to regenerate/reload the snapshot. This is a development snapshot, **not** a scheduled production provider or the complete Phase 2a sample-data loader. Restarting Backstage rebuilds its in-memory catalog from the snapshot without creating applications or submitting tasks in Hub.
+Connected entity names are stable `mta-application-<Hub ID>` values, with the real application name as the title. Edit `dev-host/data/assignments.json` (keyed by application name) to assign applications to catalog users; the supplied validation applications belong to Chen. Other applications belong to the architect portfolio without a developer assignment.
 
-`yarn dev:catalog` refreshes only the snapshot; `yarn dev:start` is the development startup entry point equivalent to `yarn start`. Split-server and tmux commands use the same catalog overlay.
+After registering a new application in Hub, restart `yarn start` to reload the snapshot. This is a development snapshot, **not** a scheduled catalog provider or the complete Phase 2a sample-data loader. The catalog database is in memory, so each start contains exactly the selected scenario. `yarn start:frontend`, `yarn start:backend`, and `yarn start:tmux` use the same selector; frontend-only starts skip scenario preparation.
 
 ### 3. Browser interactions
 
@@ -84,7 +94,7 @@ After registering a new application in Hub, restart `yarn start` to regenerate/r
 5. Inspect findings and expand a row for incident evidence. Unsupported AI remediation, deployment generation, and migration sign-off are not presented as working actions.
 6. Log out and choose **Chen (Developer)** to view assigned applications and findings without architect mutation controls.
 
-Unconnected entities explain how to register/connect in Hub and persist the application-ID annotation. The live Migration tab does not create an application and retain its identity only in browser memory. Dev-user impersonation and the example allow-all permission policy are development infrastructure, not production security.
+Unconnected entities explain how to register/connect in Hub and persist the application-ID annotation. The live Migration tab does not create an application and retain its identity only in browser memory. Dev-user impersonation and the example allow-all permission policy are development-host infrastructure.
 
 ### 4. Verification
 
@@ -96,7 +106,7 @@ yarn build:backend
 
 The backend build also builds the bundled frontend. See [Phase 2 user stories](docs/phase-2-user-stories.md) for exercised interactions and future user-versus-system authentication requirements.
 
-For the original prototype requirements, parity gaps, and six recorded walkthroughs, see [RHDH story comparison](docs/rhdh-story-comparison.md). Reusable Hub application request bodies are in [`dev/konveyor/seeds/`](dev/konveyor/seeds/); they do not automatically provision or analyze applications.
+For the original prototype requirements, parity gaps, and six recorded walkthroughs, see [RHDH story comparison](docs/rhdh-story-comparison.md). Reusable Hub application request bodies are in [`dev-host/data/seeds/`](dev-host/data/seeds/); only the `live-seeded` scenario provisions them, and nothing analyzes them automatically.
 
 ## UI Design System
 

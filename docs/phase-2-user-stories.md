@@ -14,7 +14,7 @@ All Hub requests use the Konveyor UI's exposed `/hub` route. Configure `MTA_HUB_
 
 | Story | Data involved | Implementing plugins / host code | Future Hub credential boundary |
 |---|---|---|---|
-| 1. Open an accurately connected architect/developer portfolio | Hub application IDs and names; repository URL/ref/path; catalog Component annotations, owner and assigned developer; task/analysis summaries | `dev/konveyor/sync-catalog.mjs`, development config overlay, Backstage Catalog, `plugins/mta`, `plugins/mta-backend`; dev-auth packages supply test personas | Mixed: startup inventory read is system-context; subsequent browser-driven reads can use the individual user's Hub access token |
+| 1. Open an accurately connected architect/developer portfolio | Hub application IDs and names; repository URL/ref/path; catalog Component annotations, owner and assigned developer; task/analysis summaries | `dev-host/start/` (`live` scenario), `dev-host/app-config.yaml`, Backstage Catalog, `plugins/mta`, `plugins/mta-backend`; dev-auth packages supply test personas | Mixed: startup inventory read is system-context; subsequent browser-driven reads can use the individual user's Hub access token |
 | 2. Connect registered applications and discover repository technologies | Hub application, persisted catalog application ID, discovery task ID/state/activity/errors, discovered tags | Hub registration UI/API outside Backstage; development catalog snapshot; `plugins/mta` and `plugins/mta-backend` for discovery | User-delegated for registration/discovery interactions; system-context for unattended snapshot; Hub owns addon execution credentials |
 | 3. Select an effective profile and run/monitor analysis | Matching archetype, analysis profile, target selection, analyzer task, lifecycle/events, persisted selected profile | `plugins/mta` (`MigrationTab`, migration/actions/polling hooks, shared lifecycle), `plugins/mta-backend` (`KonveyorClient`, routes) | Individual Hub token is sufficient for interactive profile reads, submit, retry, and polling; task execution is Hub-internal machine-to-machine |
 | 4. Inspect findings, failures, and access/data errors | Analysis metadata, insights, incidents, snippets, source locations, links, task errors; HTTP statuses | `plugins/mta` (findings/home hooks, `PhaseActive`, `IssueDetailPanel`, failure/error panels), `plugins/mta-backend` | Individual Hub token for interactive reads; no service-account fallback on denied reads |
@@ -31,13 +31,13 @@ There is no requirement for a shared Backstage-to-Hub service account merely bec
 
 ### Interaction
 
-1. Set the UI origin and run `yarn start`.
-2. The development CLI reads Hub applications and generates ignored `dev/konveyor/catalog.local.yaml`. Components use stable `mta-application-<id>` names and actual Hub names as titles. No Hub records or tasks are created by startup.
-3. The development overlay loads that source instead of the hard-coded demo Components and mock registration template. Backstage's in-memory catalog is rebuilt from this source on restart.
+1. Set the UI origin and run `yarn start`, choosing the `live` scenario (or `yarn start --scenario live`).
+2. The development start script (`dev-host/start/`) reads Hub applications and generates ignored `dev-host/.generated/catalog.yaml`. Components use stable `mta-application-<id>` names and actual Hub names as titles. The `live` scenario creates no Hub records or tasks.
+3. `dev-host/app-config.yaml` loads that source instead of hard-coded demo Components and the mock registration template. Backstage's in-memory catalog is rebuilt from this source on restart.
 4. Sarah's architect view requests owned Components. Chen's developer view requests Components carrying his assignment annotation. Unknown personas get an explicit unavailable-access view, not architect access.
 5. Cards use the annotation ID to request real task/analysis state and finding rows. No name fallback or seeded status/count fallback establishes a connection.
 
-`dev/konveyor/catalog-assignments.json` deliberately assigns the two validation applications to Chen. Unassigned applications still appear in the architect portfolio. Assignments are development metadata, not Hub RBAC. Snapshotting all visible Hub inventory into a shared catalog is appropriate only for this selected development environment; production metadata visibility needs an explicit policy.
+`dev-host/data/assignments.json` (keyed by Hub application name) deliberately assigns the two validation applications to Chen. Unassigned applications still appear in the architect portfolio. Assignments are development metadata, not Hub RBAC. Snapshotting all visible Hub inventory into a shared catalog is appropriate only for this selected development environment; production metadata visibility needs an explicit policy.
 
 ```mermaid
 sequenceDiagram

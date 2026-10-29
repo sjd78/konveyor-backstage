@@ -32,8 +32,8 @@ The core parent epic is [DTUX-2885](https://redhat.atlassian.net/browse/DTUX-288
 
 | Original story / acceptance area | Mapping here | Implementing code or missing boundary |
 |---|---|---|
-| DTUX-2888: register from Software Template, sync into catalog, link to Migration | **Missing live wizard flow.** The old action/provider remain mock-backed and the live development overlay does not load that registration template. | `scaffolder-backend-module-mta-actions` and `catalog-backend-module-mta-entity-provider` await Phase 4 cutover. |
-| DTUX-2888: inline onboarding of an unconnected catalog Component | **Partial.** The tab is available on Components and explains the missing ID, but does not register/connect the application in place. | `mta` / `PhaseNotStarted`; live catalog connections currently come from `dev/konveyor/sync-catalog.mjs`. Explicit import/connect workflows are Phase 2a work. |
+| DTUX-2888: register from Software Template, sync into catalog, link to Migration | **Missing live wizard flow.** The old action/provider remain mock-backed and the development host config (`dev-host/app-config.yaml`) does not load that registration template. | `scaffolder-backend-module-mta-actions` and `catalog-backend-module-mta-entity-provider` await Phase 4 cutover. |
+| DTUX-2888: inline onboarding of an unconnected catalog Component | **Partial.** The tab is available on Components and explains the missing ID, but does not register/connect the application in place. | `mta` / `PhaseNotStarted`; live catalog connections currently come from the `yarn start` `live` scenario snapshot (`dev-host/start/`). Explicit import/connect workflows are Phase 2a work. |
 | DTUX-2888: discover technologies for a connected application | **Live.** Creates/submits real discovery work, polls Hub task state/activity, reloads tags/profiles. | `mta` migration/actions/polling hooks; `mta-backend` discovery route and `KonveyorClient`; Hub addon execution. No fabricated step completion. |
 | DTUX-2888: archetype and sanctioned path/profile selection | **Partial, with real execution.** Shows discovered tags and effective Hub analysis profiles, submits the selected numeric profile ID. Does not reproduce the prototype's matched-archetype description and target/generator card layout. | `PhasePathSelection`, `/applications/:id/analysis/profiles`, backend analyzer submission. |
 | DTUX-2890: analysis progress and re-analysis | **Live.** Real queued/blocked/running/terminal tasks, persisted profile ID, retry, navigation/reload recovery. | `useKonveyorMigration`, `useMtaAnalysis`, shared `migrationState`, `mta-backend` task endpoints. |
@@ -45,7 +45,7 @@ The core parent epic is [DTUX-2885](https://redhat.atlassian.net/browse/DTUX-288
 | DTUX-2925: developer active-work filtering | **Different behavior.** We show all assigned catalog applications, including discovery, failed, and analysis states—not only Active/Post-remediation. | Deliberate current behavior in `useMtaHomeData`; do not mark exact acceptance parity. |
 | DTUX-3071: architect ownership isolation | **Partial.** Current filtering is the fixed `group:default/mta-architects`, not the current user's full ownership-ref OR query. All architects in that group share the portfolio. | `useMtaHomeData`; individual/direct/group ownership isolation remains a gap. |
 | DTUX-3071: developer assignment and unknown persona | **Live assignment filtering.** Chen sees his annotation-assigned applications; an unknown role gets no architect portfolio. Not Hub RBAC. | `usePersonaRole`, `useMtaHomeData`, Catalog assignment metadata and development auth packages. |
-| DTUX-3071: automatic catalog continuity after registration/import | **Partial/dev-only.** Startup snapshots real Hub inventory and preserves numeric associations; it is not live scheduled production ingestion or an explicit user import flow. | `dev/konveyor/sync-catalog.mjs` and development overlay. Native-import ownership continuity is not demonstrated end-to-end. |
+| DTUX-3071: automatic catalog continuity after registration/import | **Partial/dev-only.** Startup snapshots real Hub inventory and preserves numeric associations; it is not live scheduled production ingestion or an explicit user import flow. | `dev-host/start/` (`live` scenario) and `dev-host/app-config.yaml`. Native-import ownership continuity is not demonstrated end-to-end. |
 
 ### Important behavioral differences
 
@@ -110,13 +110,13 @@ All three seed files were parsed with a safe YAML loader and checked as lists of
 
 ## Reusable development seed YAML
 
-These are lists of actual Hub application request bodies, not scripts or a claim that the Phase 2a loader exists. Select a body, convert that body to JSON, and POST it to the selected UI's `/hub/applications` only when intentionally provisioning. Do not POST the entire surrounding list. There are no allocated Hub IDs, credentials, fabricated findings, task states, or inferred archetype/profile IDs.
+These are lists of actual Hub application request bodies, not a claim that the full Phase 2a loader exists. The `yarn start` `live-seeded` scenario POSTs entries missing from the selected UI's `/hub/applications` (matched by name, without starting analysis); `live-unconnected` and `offline` build unconnected Backstage Components from them. There are no allocated Hub IDs, credentials, fabricated findings, task states, or inferred archetype/profile IDs.
 
 | Seed file | Included applications | Caveats |
 |---|---|---|
-| [Example applications](../dev/konveyor/seeds/example-applications.yaml) | `book-server`, `daytrader`, `example-1`, `petclinic`, `seam-booking` | These are the five root folders. `petclinic` is documentation-only at the observed ref, so it is not a runnable Java source seed. DayTrader is Java EE/Liberty, and Seam's minimal POM declares no dependencies. |
-| [Runnable Petclinic source](../dev/konveyor/seeds/petclinic-source.yaml) | `petclinic-legacy-source` from `konveyor/spring-framework-petclinic`, branch `legacy` | Actual source root verified separately; custom rules/profile configuration may be needed. |
-| [Coolstore](../dev/konveyor/seeds/coolstore.yaml) | `coolstore` from `konveyor-ecosystem/coolstore`, branch `main`, repository root | Java EE/EAP monolith, not the separate Quarkus branch; local system-scoped JAR and runtime dependencies are documented in comments. |
+| [Example applications](../dev-host/data/seeds/example-applications.yaml) | `book-server`, `daytrader`, `example-1`, `petclinic`, `seam-booking` | These are the five root folders. `petclinic` is documentation-only at the observed ref, so it is not a runnable Java source seed. DayTrader is Java EE/Liberty, and Seam's minimal POM declares no dependencies. |
+| [Runnable Petclinic source](../dev-host/data/seeds/petclinic-source.yaml) | `petclinic-legacy-source` from `konveyor/spring-framework-petclinic`, branch `legacy` | Actual source root verified separately; custom rules/profile configuration may be needed. |
+| [Coolstore](../dev-host/data/seeds/coolstore.yaml) | `coolstore` from `konveyor-ecosystem/coolstore`, branch `main`, repository root | Java EE/EAP monolith, not the separate Quarkus branch; local system-scoped JAR and runtime dependencies are documented in comments. |
 
 Default `main` branches (Petclinic source: `legacy`) are executable repository refs. Observed commit SHAs in comments record provenance, not a reproducibility pin. The installed addon attempts `git pull`, so putting a detached commit SHA in `repository.branch` is not a valid pinning strategy here. Each future analysis still needs a compatible installed profile/ruleset and any required repository/dependency credentials.
 
@@ -132,7 +132,7 @@ Start our live development host with:
 
 ```sh
 export MTA_HUB_BASE_URL=http://192.168.39.162
-yarn start
+yarn start --scenario live
 ```
 
 The original RHDH source's scope/ticket definitions are in `dynamic-plugins-root/red-hat-developer-hub-backstage-plugin-mta/src/prototype/PrototypeScopeSwitcher.tsx`; core workflow components are in that plugin's `src/components/`. Its Software Template is `configs/templates/mta-register/template.yaml`. No source/config changes were made in the original repository.

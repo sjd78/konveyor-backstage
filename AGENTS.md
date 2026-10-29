@@ -53,13 +53,23 @@ This repository was created to run the **mainline version of Backstage** with th
    - Backend logic from `local-plugins/mta-backend/`, `local-plugins/mta-mock-hub/`, `local-plugins/mta-entity-provider/`, `local-plugins/mta-scaffolder-actions/`.
    - Seeded components from `configs/catalog-entities/components.override.yaml` -> `examples/mta-components.yaml`.
    - Scaffolder template from `configs/templates/mta-register/template.yaml` -> `examples/mta-template/template.yaml`.
+5. Later restructuring: Phase 1 removed the prototype switcher; Phase 2 replaced the frontend store with live Hub data. The create-app `packages/` host moved to `dev-host/`, `examples/` moved to `dev-host/data/catalog/`, and the production config/Dockerfile were deleted.
+
+---
+
+## 2a. Development Host Only — No Production Install
+
+- **This repository never deploys Backstage.** The deliverables are the packages in `plugins/`. `dev-host/` (app, backend, config, data, start scripts) only wraps them so they look and behave as in a real installation.
+- There is exactly one host config: `dev-host/app-config.yaml` (plus optional gitignored `dev-host/app-config.local.yaml`). Do not add `app-config.production.yaml`, Dockerfiles, external databases, or "production vs dev" branches to the host. Production concerns (auth, RBAC, packaging) belong in the plugins and the RHDH export phases of the implementation plan.
+- `yarn start` runs `dev-host/start/index.mjs`: a scenario selector (`live`, `live-seeded`, `live-unconnected`, `offline`) that writes `dev-host/.generated/catalog.yaml` before `backstage-cli repo start`. Non-interactive runs use `yarn start --scenario <id>` (or the last saved choice). Add scenarios in `dev-host/start/scenarios.mjs`. `live-seeded` writes to the Hub; never pick it without the user's intent.
+- `yarn new` does not auto-wire plugins (it expects `packages/app` and `packages/backend`). Register new plugins manually in `dev-host/app` and `dev-host/backend`; see `dev-host/README.md`.
 
 ---
 
 ## 3. Architecture & Invariants
 
 ### Backend Architecture: New Backend System
-- **Entry point:** `packages/backend/src/index.ts`.
+- **Entry point:** `dev-host/backend/src/index.ts`.
 - All backend extensions use `backend.add(import('<package>'))`.
 - **Plugins** use `createBackendPlugin` from `@backstage/backend-plugin-api`.
 - **Modules** use `createBackendModule` from `@backstage/backend-plugin-api`:
@@ -70,13 +80,13 @@ This repository was created to run the **mainline version of Backstage** with th
   - `/api/mta-mock-hub/*` (`/register`, `/applications`, `/support-contact`, `/entity/:id`)
 
 ### Frontend Architecture: New Frontend System
-- **Entry point:** `packages/app/src/App.tsx`.
-- Defined using `createApp({ features: [catalogPlugin, mtaPlugin, navModule, homeModule] })`.
+- **Entry point:** `dev-host/app/src/App.tsx`.
+- Defined using `createApp({ features: [catalogPlugin, mtaPlugin, navModule, homeModule, settingsModule, authDevUsersModule] })`.
 - **`plugins/mta/src/alpha.tsx`** exports the frontend plugin with extensions:
+  - `mtaApiExtension`: `ApiBlueprint.make` providing `MtaApiClient` (calls `mta-backend` via `DiscoveryApi`).
   - `mtaEntityContent`: `EntityContentBlueprint.makeWithOverrides` mounting `/migration` on `Component` entities.
   - `mtaHomeWidget`: `HomePageWidgetBlueprint.make` mounting `mta-migration-cards` on the home page.
   - `mtaPage`: `PageBlueprint.make` mounting `/mta`.
-  - `mountGlobalScopeBar()`: Invoked at module load to mount `#mta-scope-bar-root` in `document.body` for prototype state switching.
 
 ---
 
@@ -84,8 +94,8 @@ This repository was created to run the **mainline version of Backstage** with th
 
 | Plugin | Path | Role | Key Files |
 |---|---|---|---|
-| `@internal/backstage-plugin-mta` | `plugins/mta` | Frontend migration tab, cards, and prototype bar | `src/alpha.tsx`, `src/components/MigrationTab.tsx`, `src/prototype/PrototypeScopeSwitcher.tsx` |
-| `@internal/backstage-plugin-mta-backend` | `plugins/mta-backend` | Dynamic Component YAML generation | `src/plugin.ts`, `src/router.ts` |
+| `@internal/backstage-plugin-mta` | `plugins/mta` | Live migration tab, home cards, `/mta` page | `src/alpha.tsx`, `src/components/MigrationTab.tsx`, `src/hooks/useKonveyorMigration.ts`, `src/api/MtaApiClient.ts` |
+| `@internal/backstage-plugin-mta-backend` | `plugins/mta-backend` | Konveyor Hub proxy (`KonveyorClient`) | `src/plugin.ts`, `src/router.ts`, `src/service/KonveyorClient.ts` |
 | `@internal/backstage-plugin-mta-mock-hub-backend` | `plugins/mta-mock-hub-backend` | In-memory MTA Hub simulator | `src/plugin.ts`, `src/router.ts` |
 | `@internal/backstage-plugin-catalog-backend-module-mta-entity-provider` | `plugins/catalog-backend-module-mta-entity-provider` | Ingests MTA apps into Software Catalog | `src/module.ts` |
 | `@internal/backstage-plugin-scaffolder-backend-module-mta-actions` | `plugins/scaffolder-backend-module-mta-actions` | Custom `mta:register-application` action | `src/module.ts` |
@@ -108,8 +118,8 @@ yarn backstage-cli repo test plugins/
 # 3. Build and package backend and frontend assets
 yarn build:backend
 
-# 4. Start the dev server (frontend on :3000, backend on :7007)
-yarn start
+# 4. Start the dev host (frontend on :3000, backend on :7007); pick a data scenario
+yarn start            # or: yarn start --scenario offline   (no Hub needed)
 ```
 
 ---
@@ -128,5 +138,5 @@ yarn start
 3. **Catalog Entity Provider Mutations:**
    `MtaEntityProvider` uses `{ type: 'full', entities }` mutations. This ensures existing catalog entities receive status updates when applications transition from `registering` to `discovered` or `failed`.
 
-4. **Prototype Scope Switcher React Root:**
-   `PrototypeScopeSwitcher` mounts as a secondary React root directly to `document.body` (`#mta-scope-bar-root`). It communicates with the Backstage app tree via browser `localStorage` events and React state hooks in `plugins/mta/src/prototype/`.
+4. **Development Host Paths:**
+   Catalog file locations in `dev-host/app-config.yaml` are relative to the backend process working directory, `dev-host/backend` (e.g. `../data/catalog/org.yaml`). MTA Components come only from the generated `dev-host/.generated/catalog.yaml`; edit `dev-host/start/` or `dev-host/data/`, never the generated file.

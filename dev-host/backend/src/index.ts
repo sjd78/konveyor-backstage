@@ -1,9 +1,7 @@
 /*
- * Hi!
- *
- * Note that this is an EXAMPLE Backstage backend. Please check the README.
- *
- * Happy hacking!
+ * Development host backend. Not a deployable backend: it registers the MTA
+ * plugins alongside standard Backstage plugins so they behave as they would in
+ * a real installation. See dev-host/README.md.
  */
 
 import { createBackend } from '@backstage/backend-defaults';
@@ -53,9 +51,7 @@ backend.add(
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
 
-// search engine
-// See https://backstage.io/docs/features/search/search-engines
-backend.add(import('@backstage/plugin-search-backend-module-pg'));
+// search engine: no engine module, so search uses the built-in in-memory (Lunr) engine
 
 // search collators
 backend.add(import('@backstage/plugin-search-backend-module-catalog'));

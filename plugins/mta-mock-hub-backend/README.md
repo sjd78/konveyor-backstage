@@ -4,14 +4,14 @@ This plugin backend was templated using the Backstage CLI. You should replace th
 
 ## Installation
 
-This plugin is installed via the `@internal/backstage-plugin-mta-mock-hub-backend` package. To install it to your backend package, run the following command:
+This plugin is installed via the `@internal/backstage-plugin-mta-mock-hub-backend` package. This repository's development host already registers it in `dev-host/backend`. To install it to a backend package, run the following command:
 
 ```bash
-# From your root directory
-yarn --cwd packages/backend add @internal/backstage-plugin-mta-mock-hub-backend
+# From your root directory (in this repository the backend package is dev-host/backend)
+yarn --cwd dev-host/backend add @internal/backstage-plugin-mta-mock-hub-backend
 ```
 
-Then add the plugin to your backend in `packages/backend/src/index.ts`:
+Then add the plugin to your backend in `dev-host/backend/src/index.ts`:
 
 ```ts
 const backend = createBackend();
