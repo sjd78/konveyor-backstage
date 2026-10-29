@@ -23,7 +23,11 @@
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
+    "lint:scripts": "eslint --ext .mjs,.cjs,.js dev-host/start",
     "prettier:check": "prettier --check .",
+    "prettier:write": "prettier --write .",
+    "spell:check": "cspell --no-progress --show-suggestions \"**\"",
+    "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check",
     "new": "backstage-cli new"
   },
   "backstage": {
@@ -47,6 +51,9 @@
     "@jest/environment-jsdom-abstract": "~30.2.0",
     "@playwright/test": "^1.32.3",
     "@types/jest": "^30.0.0",
+    "cspell": "^10.4.0",
+    "eslint": "^8.6.0",
+    "eslint-config-prettier": "^9.0.0",
     "jest": "~30.2.0",
     "jsdom": "^27.1.0",
     "node-gyp": "^10.0.0",

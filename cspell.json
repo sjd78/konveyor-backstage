@@ -1,6 +1,17 @@
 {
+  "version": "0.2",
   "language": "en-US",
-  "words": [
-    "scaffolder"
-  ]
+  "useGitignore": true,
+  "ignorePaths": [
+    ".yarn/**",
+    "yarn.lock",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/dist-types/**",
+    "docs/demos/**",
+    "dev-host/app/public/**",
+    "*.svg"
+  ],
+  "dictionaries": ["typescript", "node", "softwareTerms", "companies"],
+  "words": ["scaffolder"]
 }
