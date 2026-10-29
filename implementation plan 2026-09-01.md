@@ -1,5 +1,5 @@
 # Implementation Plan: Hooking MTA Plugins to a Live MTA Hub Instance
-**Date:** 2026-09-24 (Updated from 2026-09-01)
+**Date:** 2026-10-27 (Updated from 2026-09-01; Phase 2a added and live Phase 2 verified)
 **Base Repository:** `static-backstage` (Static Backstage Monorepo)
 **Target Hub API Reference:** [`konveyor/tackle2-hub`](https://github.com/konveyor/tackle2-hub)
 **Target RHDH Runtime:** Red Hat Developer Hub (Dynamic Plugins via Scalprum / Janus IDP)
@@ -11,10 +11,11 @@
 
 This document details the architectural and implementation plan to transition the **Migration Toolkit for Applications (MTA / Konveyor)** plugins from the current prototype implementation to a production-grade integration with a live **MTA Hub (Tackle2 Hub)** instance.
 
-The plan is structured as **six phased Jira stories** under epic **MTA-7629**, each with trackable tasks. The progression is deliberately layered:
+The plan is structured as **six numbered phases** under epic **MTA-7629**, with a supporting **Phase 2a** for reproducible developer seed data. The numbered phases have Jira stories; Phase 2a is planned here without an assigned story. The progression is deliberately layered:
 
 1. **Phase 1:** Remove the visible prototype switcher and global phase/persona overrides; keep the demo store and mock Hub working while setting up catalog-backed persona stories.
 2. **Phase 2 ([MTA-7475](https://issues.redhat.com/browse/MTA-7475)):** Replace the frontend demo store with real Hub data (no auth) and refactor components for live data.
+   - **Phase 2a:** Prepare Hub-only, Backstage-only, and matched application samples, with development-only loading controls and real Hub-backed states.
 3. **Phase 3:** Layer on user-delegated OIDC authentication once the data path is proven.
 4. **Phases 4–6:** Integrate scaffolder/catalog with the live Hub, export as dynamic plugins for RHDH, and run end-to-end cutover.
 
@@ -538,18 +539,19 @@ export function useMtaAnalysis(apiClient: MtaApiClient, taskId?: number) {
 
 #### Phase State Machine: Hub Data → Display State
 
-Once Phase 2 replaces the retained frontend demo store, `MigrationTab` will derive its display phase from live Tackle2 Hub data:
+The Phase 2 implementation derives display state from persisted Hub tasks and analysis metadata. The earlier code sketches in this document are design context; current executable contracts and verified flows are described in [Phase 2 user stories](docs/phase-2-user-stories.md).
 
 | Display Phase | Hub Condition |
 |---|---|
-| `Not Started` | No `konveyor.io/application-id` annotation on the Backstage entity. |
-| `Discovery` | Application registered in Hub; repository clone / tag discovery in progress (no `discoveredTags` yet). |
-| `Path Selection` | Tags present on Hub application; matching archetypes retrieved from `GET /archetypes`; no target profile selected. |
-| `Analysis` | Active analysis task (`state: "Created" \| "Pending" \| "Running"`); live polling via `useMtaAnalysis`. |
-| `Active` | Task `state: "Succeeded"`; issues present via `GET /applications/:id/analysis/insights`. |
-| `Post-remediation` | AI remediation applied; subset of issues resolved. |
-| `Completed` | All issues resolved or migration signed off. |
-| `Failed` | Task `state: "Failed"` or Hub returned an error (repo access denied, no archetype match). |
+| `Not Started` | Connected application has no relevant tasks or persisted analysis. An unconnected Component instead receives connection instructions. |
+| `Discovery` | Latest relevant language/technology-discovery task is queued, blocked, pending, or running. |
+| `Path Selection` | Discovery succeeded; effective analysis profiles are read from `/applications/:id/analysis/profiles`. |
+| `Analysis` | Latest analyzer task is `Created`, `Ready`, `Postponed`, `QuotaBlocked`, `Pending`, or `Running`; live polling restores state after reload. |
+| `Active` | A persisted analysis is available after successful analysis, including a genuine zero-findings result. Counts and incident evidence come from Hub. |
+| `Analysis Unavailable` | Analyzer succeeded but no persisted analysis is available; offer refresh/profile selection, not fake empty findings. |
+| `Failed` | Latest relevant discovery/analyzer task failed or was canceled; show actual task errors and a real retry where possible. |
+
+Missing/deleted applications, invalid annotations, and API/network/permission failures are explicit error states, not automatic registration or successful empty results. `Post-remediation` and `Completed` are not emitted by Phase 2; they require later durable workflow semantics.
 
 #### Persona Resolution: Catalog Group Membership (Phase 1)
 
@@ -710,18 +712,121 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 
 **Acceptance / Gate:** `yarn tsc` passes; backend proxy returns live application list from Tackle2 Hub at `MTA_HUB_BASE_URL`; `MigrationTab` renders live Hub data; catalog entities aligned to Hub apps; `yarn start` launches dev server with persona-appropriate views driven by live data.
 
+**Implementation status (2026-10-27):** Live Phase 2 data paths and catalog alignment implemented and exercised against the operator instance's UI `/hub` endpoint. See [per-story interactions, diagrams, verification, and authentication boundaries](docs/phase-2-user-stories.md). The implementation uses `KonveyorClient`/`Konveyor*` names and native Node fetch. The development startup snapshot is read-only; it is not the complete Phase 2a cohort loader or the Phase 4 scaffolder/provider cutover.
+
 | Task | Title | Description | Scope (files) | Type |
 |---|---|---|---|---|
-| 2.1 | Mirror Tackle2 Hub domain models in shared types | Create `TackleApplication`, `TackleArchetype`, `TackleTask`, `TackleInsight`, `TackleIncident`, `TackleDependency` TypeScript types matching the Tackle2 Hub Go domain models. | `plugins/mta-backend/src/service/types.ts`<br>`plugins/mta/src/api/types.ts` | new |
-| 2.2 | Implement TackleClient backend service (no auth) | Backend service class wrapping `node-fetch` calls to the Tackle2 Hub REST API. No Bearer token forwarded — requests hit the Hub unauthenticated. Covers: `GET /hub/applications`, `GET /hub/applications/:id`, `GET /hub/archetypes`, `POST /hub/tasks`, `GET /hub/tasks/:id`, `GET /hub/applications/:id/analysis/insights`, `GET /hub/analyses/insights/:id/incidents`. | `plugins/mta-backend/src/service/TackleClient.ts` | new |
-| 2.3 | Add proxy routes to mta-backend for Hub endpoints | Extend `router.ts` with proxy endpoints: `/applications`, `/applications/:id`, `/archetypes`, `/applications/:id/analyze`, `/tasks/:id`, `/applications/:id/issues`, `/insights/:id/incidents`. Each route instantiates `TackleClient` and forwards to Hub. Existing `/entity/:name` route is preserved. | `plugins/mta-backend/src/router.ts`<br>`plugins/mta-backend/src/plugin.ts` | modify |
-| 2.4 | Add `MTA_HUB_BASE_URL` to app-config | Add `mta.baseUrl` config key and read it in the backend plugin. Defaults to `process.env.MTA_HUB_BASE_URL` or `http://localhost:8080`. Create `.env.example` documenting the env var. | `app-config.yaml`<br>`app-config.local.yaml`<br>`plugins/mta-backend/src/plugin.ts` | modify |
-| 2.5 | Implement MtaApiClient frontend service (no auth) | Frontend API client class using `DiscoveryApi` to resolve `mta-backend` base URL. Calls the backend proxy endpoints. No auth API involved — no Bearer token attached. Registered via `createApiFactory`. | `plugins/mta/src/api/MtaApiClient.ts`<br>`plugins/mta/src/api/index.ts` | new |
-| 2.6 | Implement useMtaAnalysis reactive polling hook | React hook that polls `GET /tasks/:id` at 3s intervals while task state is `Created`, `Pending`, or `Running`. Stops polling on `Succeeded` or `Failed`. Returns `{ task, loading, error, refetch }`. | `plugins/mta/src/hooks/useMtaAnalysis.ts` | new |
-| 2.7 | Refactor MigrationTab and phase components for live API | Replace `MtaStore`/`mockData` and demo delays with phase state derived from Tackle2 Hub data (see Phase State Machine table in §5.2). Each phase component receives live data from hooks and `MtaApiClient`; remove the mock-Hub frontend polling once the live path works. | `plugins/mta/src/store/*`<br>`plugins/mta/src/components/MigrationTab.tsx`<br>`plugins/mta/src/components/phases/*` | modify/remove |
-| 2.8 | Align catalog component entities with Hub application inventory | Update `mta-components.yaml` so Component entities correspond to applications registered in the dev Konveyor Hub instance. Each component gets a `konveyor.io/application-id` annotation matching the Hub's application ID. This enables `MigrationTab` to look up the Hub application from the entity annotation. | `examples/mta-components.yaml` | modify |
+| 2.1 | Mirror Hub domain models | Implemented `KonveyorApplication`, task/error/lifecycle, analysis/profile/target, insight, and incident contracts using actual Hub responses. Application responses do not embed task IDs. | `plugins/mta-backend/src/service/types.ts`<br>`plugins/mta/src/api/types.ts` | implemented |
+| 2.2 | Implement KonveyorClient backend service (no auth) | Live inventory/pagination, filtered application tasks, effective profiles, JSON analysis metadata/insights/incidents, real discovery/analyzer task creation and submission. The singular analysis endpoint is an archive, not JSON. | `plugins/mta-backend/src/service/KonveyorClient.ts` | implemented |
+| 2.3 | Add live proxy routes | Implemented application, task, profile, analysis, discovery, analyzer, insight, target, and archetype routes; retained `/entity/:name` and meaningful upstream HTTP statuses. | `plugins/mta-backend/src/router.ts`<br>`plugins/mta-backend/src/plugin.ts` | implemented |
+| 2.4 | Configure UI origin | `mta.baseUrl` / `MTA_HUB_BASE_URL` identifies the Konveyor UI origin. The client adds `/hub`; no direct-service or port-forward prerequisite. | `app-config.yaml`<br>`.env.example`<br>`plugins/mta-backend/src/plugin.ts` | implemented |
+| 2.5 | Implement MtaApiClient frontend service (no auth) | Frontend API client resolves `mta-backend` through `DiscoveryApi`, exposes live application/task/profile/analysis endpoints, and preserves meaningful HTTP errors. No Hub auth token is attached in Phase 2. | `plugins/mta/src/api/MtaApiClient.ts`<br>`plugins/mta/src/api/index.ts` | implemented |
+| 2.6 | Implement reactive task polling | Poll all nonterminal Hub states every 3s; stop on terminal state/error, provide explicit refresh, reject stale responses, restore selected profile/task from Hub history. | `plugins/mta/src/hooks/useMtaAnalysis.ts`<br>`plugins/mta/src/hooks/useKonveyorMigration.ts` | implemented |
+| 2.7 | Complete frontend live-data cutover | Removed the frontend store/mock data and simulated remediation/deployment/completion paths. Home and tab share real phase/finding derivation, actual incident evidence, and fail-closed persona handling. | `plugins/mta/src/hooks/`<br>`plugins/mta/src/components/` | implemented |
+| 2.8 | Align development catalog with live Hub IDs | Startup reads Hub inventory into ignored generated catalog YAML with actual IDs, stable entity names, repository metadata, and development assignments. Phase 2a's separate intentional cohorts/import/reset controls remain planned. | `dev/konveyor/`<br>`package.json` | implemented |
 
-> **Prerequisite for Phase 2:** Ensure the dev Konveyor Hub instance has seed data: applications (inventory-service, order-management, customer-portal, notification-hub, data-pipeline), archetypes, and target profiles matching the user stories.
+> **Developer data beyond Phase 2:** The implemented read-only startup snapshot aligns the live development catalog. Phase 2a below extends it with reproducible provisioning and intentional Hub-only, Backstage-only, and matched cohorts, plus manual loading/import/connection/reset controls; those additional workflows remain planned.
+
+---
+
+### Phase 2a — Developer Seed Data & Matched Startup Scenarios
+
+**Status:** Planned beyond the shared live-state paths and read-only startup catalog snapshot implemented in Phase 2. The full cohort seed runner, load/import/connect/reset panel, and `dev:seed` command below are not implemented by the Phase 2 cutover.
+
+**Summary:** Make the development Backstage instance useful at first glance, with applications that exercise import, connection, and already-connected migration views. Seed real Hub records and real catalog entities, not a frontend mock store or status overrides. Keep all fixture definitions, orchestration, and loading controls in the development host around the publishable plugins.
+
+**Dependency:** Working Phase 2 Hub client/proxy connectivity. This work supports completion of Phase 2's catalog-alignment and live-state acceptance criteria; it does not wait for the entire Phase 2 gate. Production scaffolder/catalog cutover remains Phase 4.
+
+#### Connectivity and development boundary
+
+- Reach Hub through the Konveyor UI's exposed `/hub` proxy. Set `MTA_HUB_BASE_URL` to the **UI origin**, such as `https://<konveyor-ui-host>`; the existing `KonveyorClient` adds `/hub`. Do not append `/hub` to that variable, require port-forwarding, or introduce a direct Hub service URL.
+- Use that configured target for seeding, inventory reads, import/connection helpers, and runtime plugin requests. The browser calls the Backstage backend; Hub access and provisioning stay server-side.
+- Place the versioned dataset and runner under a proposed `dev/konveyor/` directory. Development adapters belong in `packages/app` and `packages/backend`, not in the public MTA plugin exports. Seed files, write credentials, and loading controls must not enter published plugin artifacts.
+- Enable this dataset explicitly for a designated development Hub. Starting ordinary `yarn start` must not silently populate an arbitrary connected Hub.
+- Retain the old mock Hub only for its existing consumers until Phase 4. Do not mix mock UUIDs, mock statuses, or mock registration results into this live-seeded catalog.
+
+#### Three seed cohorts
+
+Presence and connection are separate concepts: a catalog Component is connected only when its persisted `konveyor.io/application-id` resolves to the intended application on the configured Hub. A similar name or repository is a candidate for connection, not proof of a connection.
+
+| Cohort / sample | Initial Hub data | Initial Backstage data | Story to exercise |
+|---|---|---|---|
+| **Hub-only — `legacy-billing-import`** | Application with a valid repository and completed analysis containing findings | No Component or matching annotation | Import an existing Hub application into the catalog without creating another Hub application |
+| **Hub-only — `customer-portal-link`** | Application with a repository matching the unconnected `customer-portal` Component | No connected Component | Find and select an existing Hub application when connecting a Backstage entity; do not auto-link by name |
+| **Backstage-only — `customer-portal`** | No application linked to this entity; the preceding row supplies an explicit candidate | Component with repository, owner, and developer assignment; no application-ID annotation | Connect to an existing Hub application and persist the chosen association |
+| **Backstage-only — `data-pipeline`** | No corresponding application | Component with a valid repository, owner, and assignment; no application-ID annotation | Register a new application in Hub, then persist its returned ID on the existing Component |
+| **Matched — `inventory-service`** | Analyzed application with insights and incidents | Component annotated with the returned Hub ID; assigned to Chen | Inspect real findings immediately in cards and the Migration tab |
+| **Matched — `migration-path-selection`** | Application with tags, a matching archetype, and an analysis profile; no submitted analysis | Connected Component | Inspect discovered technologies and choose a real analysis target/profile |
+| **Matched — `order-management`** | Application ready for analysis | Connected Component | Manually start analysis and observe actual queued/running/terminal states |
+| **Matched — `notification-hub`** | Successful analysis with no findings | Connected Component | Show an analyzed, no-findings state without claiming migration sign-off |
+| **Matched — `migration-failure`** | Actual failed discovery or analysis task with a recorded error | Connected Component | Inspect a failure and exercise a real retry |
+
+The Hub-only connection candidate and Backstage-only `customer-portal` deliberately share a repository but remain unlinked until selection. All other samples have explicit independent identities. Hub-only samples must remain out of the catalog until an import or connection action; a background importer must not consume them automatically.
+
+Reuse `sarah-architect`, `dev-chen`, `mta-architects`, and `mta-developers` from `examples/konveyor/mta-users.yaml`. Assign the portfolio to the architect group and a subset of connected and unconnected Components to Chen. Architects can inspect the complete development scenario inventory; developers see their assigned catalog applications. Persona views are not authorization.
+
+#### Dataset contract and provisioning
+
+1. **One manifest:** Record a stable scenario key, cohort, Hub resource payloads, repository URL/ref/root path, Backstage entity name/owner/assignment, and the expected observable state. Use Hub-shaped payloads with symbolic references resolved by the runner, not a second implementation of the Hub domain model.
+2. **Verified inputs:** Pin a supported Hub/addon version and accessible sample repository revisions. The existing example names may be retained, but their repository URLs and analysis outcomes must be verified; copying the old demo URLs, counts, or statuses is not seeding.
+3. **Dependency order:** Resolve/create managed tag categories and tags; resolve installed targets/generators; create analysis profiles and archetypes; create applications; then perform the discovery/analysis required by each scenario. Use returned resource IDs for every relationship. Reuse operator-provided resources without taking ownership of them.
+4. **Real execution:** Verify the selected Hub version's task payload, submission operation, task filtering, and lifecycle states. Creating an application is not discovery, and creating an unsubmitted task is not running analysis. Use the discovery/analyzer addons and poll their real results. Look up tasks by application rather than assuming an application response embeds task IDs.
+5. **Stable matching:** Store the scenario-key-to-Hub-ID and entity-ref mapping in generated development state, bound to the selected UI origin and dataset version. Check the referenced record and repository identity before reuse. Reconcile managed records only; reject ambiguous matches instead of guessing or adopting an unrelated application.
+6. **Catalog persistence:** Generate Components using actual returned IDs, canonical repository/source-location annotations, ownership, and assignments. Import and connection actions must update that same authoritative catalog source. Connections must survive a browser reload and a Backstage restart, not live only in React state.
+7. **One catalog writer:** In the seeded development profile, replace the hand-authored `examples/konveyor/mta-components.yaml` location with the generated dataset location; do not load conflicting definitions of the same entity. Re-register that source on each startup because the current development catalog database is in memory. Catalog refresh and read-back determine readiness, not a fixed sleep.
+8. **Safe repetition:** Loading again must preserve completed imports/connections, avoid duplicate applications/entities, and not rerun successful analyses unnecessarily. Partial preparation reports which scenarios are ready or failed and can resume without recreating successful work. Restoring the initial cohort layout is a separate, explicitly confirmed reset limited to recorded seed-owned resources; never wipe Hub inventory or delete shared targets/generators.
+
+#### Startup and landing-page workflow
+
+Support both a prepare-before-start workflow and manual preparation from the running app. Proposed commands below are part of this phase's deliverable, not currently available commands:
+
+- **`yarn dev:seed`**: Prepare/reconcile the three cohorts against the configured UI origin, run the required initial analyses, and write the generated mapping/catalog source. Exit with a scenario readiness report; a failed scenario must not be presented as ready.
+- **`yarn dev:start`**: Select the seeded development catalog configuration, ensure its source exists, and start Backstage. Rehydrate catalog entities from the mapping; do not reset cohorts or launch new Hub jobs on every restart. If preparation is missing or the Hub has changed, show setup guidance rather than stale connected samples.
+
+Add a development-only **Sample data** panel to the landing page. Show the selected Hub origin, dataset version, preparation progress, cohort/connection state, actual task state, and per-scenario errors. Once preparation completes, the initial view must show the import candidates, unconnected catalog Components, and matched applications together; Hub-only rows are inventory candidates, not invented catalog entities.
+
+| Control | Required effect |
+|---|---|
+| **Load test data** | Invoke the same runner as `dev:seed`, refresh the catalog and live queries, and report readiness; preserve intentional Hub-only and Backstage-only cohorts |
+| **Import from Hub** | Select a Hub-only application, create its Component using the existing Hub ID, and wait until it is readable in the catalog; create no Hub application |
+| **Connect application** | On a Backstage-only Component, explicitly choose an existing Hub candidate or register a new Hub application, then persist the association; create no duplicate Component |
+| **Start discovery / Start analysis** | Submit real work for the selected scenario and display the resulting task lifecycle; leave this manual where the state would otherwise disappear before a developer opens the page |
+| **Restore initial samples** | Confirm the target and affected seed-owned resources, restore the initial cohort layout, refresh both sides, and leave unrelated data untouched |
+
+Controls may invoke development-only orchestration where the production import/registration flow is not yet available. They must perform real operations, reuse the normal data path, and expose failures; they must not advance phases with timers or fabricate findings. The production scaffolder action and continuous provider are not silently migrated by this phase. Prevent concurrent duplicate loads/task submissions, and use the configured backend target rather than accepting arbitrary Hub URLs from button requests.
+
+The default prepared dataset should contain stable states that remain useful after restart: unconnected, ready for path selection/analysis, findings available, analyzed with no findings, and failed. Discovery and queued/running analysis are observed after the explicit process controls; do not keep tasks artificially running to preserve a screenshot.
+
+Home summaries and entity tabs must agree on the persisted connection and Hub results. Missing records, unavailable Hub, and denied requests are distinct from "Not Started" or "no findings." Do not use fixture annotations to mask missing data. `Completed` and `Post-remediation` require durable workflow semantics not currently provided by seed data; zero findings alone is not migration completion. These are not promised Phase 2a states.
+
+#### Authorization constraints for later phases
+
+- Unauthenticated writes are acceptable only on the explicitly selected isolated development instance. If Hub requires authentication, show that requirement; never disable its auth or fall back to anonymous access.
+- Keep a provisioning identity separate from interactive user credentials and future read-only catalog discovery credentials. Any provisioning secret stays backend/CLI-only and must not authorize normal plugin requests.
+- Dev-user impersonation and seed controls must be absent outside the opted-in development host. A production build must not expose a seed endpoint merely because its button is hidden.
+- Carry `401`/`403` through to the panel and migration views. Catalog membership and a matching seed identity must not imply Hub permission or globally publish restricted Hub metadata.
+- Phase 3 must use the deployed issuer's discovery document and registered client configuration, not assume Keycloak. Backstage request credentials, Hub access tokens, and scaffolder execution tokens are distinct; seeding must not bake in their interchangeability.
+
+#### Implementation tasks
+
+| Task | Deliverable | Scope |
+|---|---|---|
+| 2a.1 | Versioned manifest, verified repositories, cohort definitions, and persona metadata | Proposed `dev/konveyor/`; existing `examples/konveyor/mta-users.yaml` |
+| 2a.2 | Reusable development seed runner, dependency resolution, real task execution, persistent mapping, and seed-owned reset | Proposed `dev/konveyor/`; reuse `plugins/mta-backend/src/service/KonveyorClient.ts` transport conventions |
+| 2a.3 | Seeded catalog overlay, prepare/start commands, and catalog readiness checks | `package.json`, `packages/backend`, proposed `dev/konveyor/` configuration/generated output |
+| 2a.4 | Landing-page panel with loading, import, connect/register, process, and reset controls | `packages/app/src/modules/home/`; development-only backend adapter |
+| 2a.5 | Correct persisted associations, task/profile reads, lifecycle handling, and consistent live summaries required by the scenarios | `plugins/mta/src/hooks/`, `plugins/mta/src/components/`, `plugins/mta/src/api/`, `plugins/mta-backend/src/` |
+| 2a.6 | Scenario verification and developer instructions, including restart, repeat-load, and auth failure behavior | `README.md`; existing relevant behavior tests and runtime smoke checks |
+
+**Acceptance / Gate:**
+
+- Preparing a clean development dataset produces every initial cohort above. Hub-only inventory is visible for import, Backstage-only Components offer connection, and matched applications show real results together on the landing page.
+- Import keeps the Hub application ID; connecting an existing candidate changes neither application's identity; registering the no-candidate Component creates one Hub application and links the existing Component.
+- Refreshing the browser and restarting Backstage preserve associations and do not duplicate, re-import, reset, or unnecessarily re-analyze samples. Explicit reset restores the original cohorts without touching unrelated data.
+- Live discovery/analysis controls demonstrate task transitions through terminal results. Stable successful/failed samples survive restart, and home cards agree with entity tabs without hand-authored status/count overrides.
+- Architect and developer views reflect catalog ownership/assignment. Hub outages, partial loads, missing links, and `401`/`403` are visible and are not reported as empty/successful data.
+- Seed commands, endpoints, fixtures, and provisioning secrets remain development-only. All Hub requests use the UI `/hub` route, with no port-forward prerequisite.
+- Run the repository typecheck, plugin tests, and backend/app build checks; then exercise load, import, both connection paths, process controls, reload, restart, repeat-load, and reset against the designated Hub in the browser. Record actual observations rather than claiming the scenarios from fixture contents alone.
 
 ---
 
@@ -729,9 +834,11 @@ Each **Phase** below is a **Jira Story** under the epic. Tasks are listed in the
 
 **Story ([MTA-7938](https://issues.redhat.com/browse/MTA-7938)):** *MTA RHDH Plugin: Add user-delegated OIDC authentication for Konveyor Hub*
 
-**Summary:** Layer on individual user authentication. Each user authenticates via OIDC against the Hub's Keycloak. Bearer tokens flow through the backend proxy to Tackle2, preserving per-user RBAC and audit trails. This is the most complex phase due to user-scoped token management. The Hub's auth is re-enabled.
+**Summary:** Layer on individual user authentication against the deployed Hub's accepted OIDC issuer. Bearer tokens flow through the backend proxy to Tackle2, preserving per-user RBAC and audit trails. This is the most complex phase due to user-scoped token management. The Hub's auth is re-enabled.
 
-**Dependency:** Phase 2 (auth is layered on a proven, working data path).
+**Dependency:** Phase 2, including the matched developer dataset and startup scenarios specified in Phase 2a.
+
+**Compatibility note:** The earlier Keycloak-specific examples and token-forwarding sketches in this document must be reconciled with Phase 2a's authorization constraints before implementation. Discover the deployed issuer, register the appropriate client, and preserve separate Backstage request authentication and Hub access credentials; a Backstage/scaffolder execution token is not a substitute for a Hub token. Phase 2a provisioning must not implement those sketches as a shared-credential shortcut.
 
 **Acceptance / Gate:** Users authenticate individually via OIDC popup; Hub returns user-scoped data; `401`/`403` from Hub are surfaced in UI; multiple users can work concurrently with different permissions.
 
@@ -833,6 +940,10 @@ Every file created, modified, or deleted across all phases:
 | `plugins/mta-backend/src/service/TackleClient.ts` | modify | 3 | Require user bearer token |
 | `plugins/mta/package.json` | modify | 5 | Add Scalprum config |
 | `package.json` | modify | 5 | Add `export:dynamic` script |
+| `dev/konveyor/` *(proposed development tooling/data)* | create | 2a | Cohort manifest, runner, generated catalog/mapping, and seeded configuration |
+| `packages/app/src/modules/home/` | modify | 2a | Development-only sample loading, inventory, and scenario controls |
+| `packages/backend` | modify | 2a | Opt-in development adapter; seed endpoints excluded outside development |
+| `package.json`, `README.md` | modify | 2a | Proposed `dev:seed` / `dev:start` commands and verified startup instructions |
 | `configs/dynamic-plugins/dynamic-plugins.override.yaml` | create | 5 | RHDH plugin configuration |
 
 ---
@@ -843,13 +954,15 @@ Every file created, modified, or deleted across all phases:
 graph LR
     P1["Phase 1 (MTA-7937)<br/>Demo Removal<br/>& Dev Data"]
     P2["Phase 2 (MTA-7475)<br/>Hub Connectivity<br/>(No Auth)"]
+    P2a["Phase 2a<br/>Developer Seed Data<br/>& Matched Startup"]
     P3["Phase 3 (MTA-7938)<br/>OIDC Auth"]
     P4["Phase 4 (MTA-7939)<br/>Scaffolder &<br/>Catalog"]
     P5["Phase 5 (MTA-7940)<br/>Dynamic Plugin<br/>Export"]
     P6["Phase 6 (MTA-7941)<br/>Live Cutover"]
 
     P1 --> P2
-    P2 --> P3
+    P2 --> P2a
+    P2a --> P3
     P3 --> P4
     P3 --> P5
     P4 --> P6

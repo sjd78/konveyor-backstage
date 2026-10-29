@@ -1,103 +1,53 @@
 import Box from '@material-ui/core/Box';
-import CircularProgress from '@material-ui/core/CircularProgress';
 import LinearProgress from '@material-ui/core/LinearProgress';
 import Typography from '@material-ui/core/Typography';
-import { alpha, useTheme } from '@material-ui/core/styles';
-import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { InfoCard } from '@backstage/core-components';
-import type { KonveyorTask } from '../../api/types';
-import { useStyles } from '../shared/migrationTabStyles';
+import type { KonveyorApplication, KonveyorTask } from '../../api/types';
 
 export interface PhaseAnalyzingProps {
-  task?: KonveyorTask | null;
-  targetName?: string;
-  appTypeName?: string;
+  task: KonveyorTask | null;
+  app: KonveyorApplication;
+  profileName?: string;
 }
 
 export function PhaseAnalyzing({
   task,
-  targetName,
-  appTypeName,
+  app,
+  profileName,
 }: PhaseAnalyzingProps) {
-  const classes = useStyles();
-  const theme = useTheme();
-  const successColor = theme.palette.status?.ok ?? theme.palette.success.main;
-  const isDark = theme.palette.type === 'dark';
-
-  const activityText =
-    task?.activity && task.activity.length > 0
-      ? task.activity[task.activity.length - 1]
-      : 'Checking source code against target platform';
-
   return (
     <Box mb={2}>
       <InfoCard
-        title="Running analysis"
-        subheader={task?.state ? `Status: ${task.state}` : 'About 2 to 5 minutes'}
+        title="Analysis task"
+        subheader={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
       >
-        <Box display="flex" alignItems="center" mb={2} style={{ gap: 12 }}>
-          <CircularProgress size={20} />
-          <Typography variant="body2">{activityText}</Typography>
-        </Box>
-        <LinearProgress style={{ marginBottom: 16 }} />
-        {targetName && (
-          <div className={classes.configRow}>
-            <span className={classes.configKey}>Migration path</span>
-            <span>{targetName}</span>
-          </div>
-        )}
-        {appTypeName && (
-          <div className={classes.configRow}>
-            <span className={classes.configKey}>Application type</span>
-            <span>{appTypeName}</span>
-          </div>
-        )}
-        <Box
-          mt={2}
-          p={1.5}
-          borderRadius={4}
-          bgcolor="action.hover"
-          border={1}
-          borderColor="divider"
-        >
-          <Typography
-            variant="caption"
-            color="textSecondary"
-            style={{
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              fontWeight: 600,
-            }}
-            gutterBottom
-          >
-            What happens next
+        <LinearProgress />
+        <Box my={2}>
+          <Typography variant="body2">
+            {task?.activity?.[task.activity.length - 1] ||
+              'Waiting for Hub analysis results.'}
           </Typography>
+        </Box>
+        {profileName && (
+          <Typography variant="body2">
+            Analysis profile: {profileName}
+          </Typography>
+        )}
+        <Typography variant="body2">
+          Repository: {app.repository?.url || 'Not configured in Hub'}
+        </Typography>
+        {(app.repository?.branch || app.repository?.tag) && (
+          <Typography variant="body2">
+            Ref: {app.repository.branch || app.repository.tag}
+          </Typography>
+        )}
+        {app.repository?.path && (
+          <Typography variant="body2">Path: {app.repository.path}</Typography>
+        )}
+        <Box mt={2}>
           <Typography variant="body2" color="textSecondary">
-            Results will show compatibility issues with severity, file locations,
-            and fix guidance.
-          </Typography>
-        </Box>
-        <Box
-          mt={2}
-          display="flex"
-          alignItems="center"
-          p={1.5}
-          borderRadius={4}
-          style={{
-            gap: 8,
-            backgroundColor: alpha(successColor, isDark ? 0.12 : 0.06),
-            border: `1px solid ${alpha(successColor, isDark ? 0.25 : 0.15)}`,
-          }}
-        >
-          <CheckCircleOutlineIcon
-            style={{ fontSize: 16, color: successColor }}
-          />
-          <Typography
-            variant="body2"
-            color="textSecondary"
-            style={{ fontSize: '0.8rem' }}
-          >
-            You can leave this page. Results will appear here when ready.
+            You can leave this page. Task status and findings are loaded from
+            Hub when you return.
           </Typography>
         </Box>
       </InfoCard>

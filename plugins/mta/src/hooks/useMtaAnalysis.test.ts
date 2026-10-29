@@ -98,4 +98,71 @@ describe('useMtaAnalysis', () => {
 
     expect(mockGetTask).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['Ready', 'Postponed', 'QuotaBlocked'] as const)(
+    'continues polling a %s task until Hub reports a terminal state',
+    async state => {
+      mockGetTask
+        .mockResolvedValueOnce({ id: 42, addon: 'analyzer', state })
+        .mockResolvedValueOnce({
+          id: 42,
+          addon: 'analyzer',
+          state: 'Canceled',
+        });
+      const { result } = renderHook(() => useMtaAnalysis(42));
+      await waitFor(() => expect(result.current.task?.state).toBe(state));
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(result.current.task?.state).toBe('Canceled');
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(mockGetTask).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('clears a polling error and resumes when explicitly refreshed', async () => {
+    mockGetTask
+      .mockRejectedValueOnce(new Error('Hub is unavailable'))
+      .mockResolvedValueOnce({ id: 42, addon: 'analyzer', state: 'Running' })
+      .mockResolvedValueOnce({ id: 42, addon: 'analyzer', state: 'Succeeded' });
+    const { result } = renderHook(() => useMtaAnalysis(42));
+    await waitFor(() =>
+      expect(result.current.error?.message).toBe('Hub is unavailable'),
+    );
+    await act(async () => {
+      await result.current.refetch();
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.task?.state).toBe('Running');
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(result.current.task?.state).toBe('Succeeded');
+  });
+
+  it('ignores an old in-flight task after the selected task changes', async () => {
+    let resolveOld: ((task: KonveyorTask) => void) | undefined;
+    mockGetTask
+      .mockReturnValueOnce(
+        new Promise<KonveyorTask>(resolve => {
+          resolveOld = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({ id: 43, addon: 'analyzer', state: 'Succeeded' });
+    const { result, rerender } = renderHook(({ id }) => useMtaAnalysis(id), {
+      initialProps: { id: 42 },
+    });
+    rerender({ id: 43 });
+    await waitFor(() => expect(result.current.task?.id).toBe(43));
+    await act(async () => {
+      resolveOld?.({ id: 42, addon: 'analyzer', state: 'Running' });
+    });
+    expect(result.current.task?.id).toBe(43);
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(mockGetTask).toHaveBeenCalledTimes(2);
+  });
 });

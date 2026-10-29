@@ -1,174 +1,277 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  KonveyorAnalysisProfile,
   KonveyorApplication,
-  KonveyorArchetype,
   KonveyorTask,
 } from '../api/types';
 import type { MigrationIssue, MigrationStatus } from '../types';
 import { useKonveyorActions } from './useKonveyorActions';
 import {
   useKonveyorApplication,
-  useKonveyorArchetypes,
   useKonveyorIssues,
+  useMtaApi,
 } from './useKonveyorData';
+import {
+  deriveKonveyorPhase,
+  getLatestKonveyorTask,
+  isKonveyorTaskTerminal,
+  isDiscoveryTask,
+} from './migrationState';
 import { useMtaAnalysis } from './useMtaAnalysis';
 
 export interface UseKonveyorMigrationOptions {
-  entityName: string;
-  entityRef: string;
   appId?: number;
-  repoUrl?: string;
 }
 
 export interface UseKonveyorMigrationResult {
   phase: MigrationStatus;
   application: KonveyorApplication | null;
-  archetypes: KonveyorArchetype[];
+  profiles: KonveyorAnalysisProfile[];
   issues: MigrationIssue[];
   activeTask: KonveyorTask | null;
   loading: boolean;
   error: Error | null;
+  issuesError: Error | null;
   isExecuting: boolean;
   startDiscovery: () => Promise<void>;
-  startAnalysis: (targets: string[]) => Promise<void>;
+  startAnalysis: (profileId: number) => Promise<void>;
   retryAnalysis: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
-export function useKonveyorMigration(
-  options: UseKonveyorMigrationOptions,
-): UseKonveyorMigrationResult {
-  const { entityName, appId: initialAppId, repoUrl } = options;
-  const [createdAppId, setCreatedAppId] = useState<number | undefined>(undefined);
-  const effectiveAppId = initialAppId ?? createdAppId;
+interface LifecycleData {
+  appId?: number;
+  tasks: KonveyorTask[];
+  profiles: KonveyorAnalysisProfile[];
+  hasAnalysis: boolean;
+  error: Error | null;
+  loading: boolean;
+}
 
-  const [activeTaskId, setActiveTaskId] = useState<number | undefined>(undefined);
-  const lastTargetsRef = useRef<string[]>([]);
+export function useKonveyorMigration({
+  appId,
+}: UseKonveyorMigrationOptions): UseKonveyorMigrationResult {
+  const mtaApi = useMtaApi();
+  const [lifecycle, setLifecycle] = useState<LifecycleData>({
+    tasks: [],
+    profiles: [],
+    hasAnalysis: false,
+    error: null,
+    loading: Boolean(appId),
+  });
+  const [submittedTask, setSubmittedTask] = useState<{
+    appId: number;
+    task: KonveyorTask;
+  }>();
+  const currentAppId = useRef(appId);
+  const requestSequence = useRef(0);
+  const refreshedTerminal = useRef('');
+  currentAppId.current = appId;
 
   const {
-    application,
+    application: loadedApplication,
     loading: appLoading,
     error: appError,
     refetch: refetchApp,
-  } = useKonveyorApplication(effectiveAppId);
-
-  const {
-    archetypes,
-    loading: archetypesLoading,
-    error: archetypesError,
-  } = useKonveyorArchetypes();
-
+  } = useKonveyorApplication(appId);
+  const application =
+    loadedApplication?.id === appId ? loadedApplication : null;
   const {
     issues,
     loading: issuesLoading,
     error: issuesError,
-  } = useKonveyorIssues(effectiveAppId);
-
+    refetch: refetchIssues,
+  } = useKonveyorIssues(application?.id);
   const {
-    task: activeTask,
-    loading: taskLoading,
-    error: taskError,
-  } = useMtaAnalysis(activeTaskId);
-
-  const {
-    createApplication,
+    triggerDiscovery,
     triggerAnalysis,
     isExecuting,
     actionError,
+    clearActionError,
   } = useKonveyorActions();
 
-  // Pick up latest task from application if not explicitly tracked
-  useEffect(() => {
-    if (application?.tasks && application.tasks.length > 0 && !activeTaskId) {
-      const latest = application.tasks[application.tasks.length - 1];
-      setActiveTaskId(latest);
+  const fetchLifecycle = useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    if (!appId) {
+      setLifecycle({
+        tasks: [],
+        profiles: [],
+        hasAnalysis: false,
+        error: null,
+        loading: false,
+      });
+      return;
     }
-  }, [application, activeTaskId]);
+    setLifecycle(previous => ({ ...previous, loading: true, error: null }));
+    const [tasks, profiles, analysis] = await Promise.allSettled([
+      mtaApi.getApplicationTasks(appId),
+      mtaApi.getAnalysisProfiles(appId),
+      mtaApi.getAnalysis(appId),
+    ]);
+    if (
+      currentAppId.current !== appId ||
+      sequence !== requestSequence.current
+    ) {
+      return;
+    }
+    const failed = [tasks, profiles, analysis].find(
+      result => result.status === 'rejected',
+    );
+    let lifecycleError: Error | null = null;
+    if (failed?.status === 'rejected') {
+      lifecycleError =
+        failed.reason instanceof Error
+          ? failed.reason
+          : new Error(String(failed.reason));
+    }
+    setLifecycle(previous => {
+      const previousData = previous.appId === appId ? previous : undefined;
+      return {
+        appId,
+        tasks:
+          tasks.status === 'fulfilled'
+            ? tasks.value
+            : previousData?.tasks ?? [],
+        profiles:
+          profiles.status === 'fulfilled'
+            ? profiles.value
+            : previousData?.profiles ?? [],
+        hasAnalysis:
+          analysis.status === 'fulfilled'
+            ? analysis.value !== null
+            : previousData?.hasAnalysis ?? false,
+        error: lifecycleError,
+        loading: false,
+      };
+    });
+  }, [appId, mtaApi]);
+
+  useEffect(() => {
+    void fetchLifecycle();
+    return () => {
+      requestSequence.current += 1;
+    };
+  }, [fetchLifecycle]);
+
+  const tasks = lifecycle.appId === appId ? lifecycle.tasks : [];
+  const profiles = lifecycle.appId === appId ? lifecycle.profiles : [];
+  const latestTask = getLatestKonveyorTask(
+    submittedTask && submittedTask.appId === appId
+      ? [...tasks, submittedTask.task]
+      : tasks,
+  );
+  const {
+    task: polledTask,
+    loading: taskLoading,
+    error: taskError,
+    refetch: refetchTask,
+  } = useMtaAnalysis(latestTask?.id);
+  const activeTask =
+    polledTask?.id === latestTask?.id ? polledTask : latestTask;
+
+  const refresh = useCallback(async () => {
+    clearActionError();
+    await Promise.all([
+      refetchApp(),
+      fetchLifecycle(),
+      refetchIssues(),
+      refetchTask(),
+    ]);
+  }, [
+    clearActionError,
+    refetchApp,
+    fetchLifecycle,
+    refetchIssues,
+    refetchTask,
+  ]);
+
+  useEffect(() => {
+    if (!activeTask || !isKonveyorTaskTerminal(activeTask)) return;
+    const key = `${appId}:${activeTask.id}:${activeTask.state}`;
+    if (refreshedTerminal.current === key) return;
+    refreshedTerminal.current = key;
+    void Promise.all([refetchApp(), fetchLifecycle(), refetchIssues()]);
+  }, [appId, activeTask, refetchApp, fetchLifecycle, refetchIssues]);
 
   const startDiscovery = useCallback(async () => {
-    const newApp = await createApplication({
-      name: entityName,
-      repository: repoUrl ? { url: repoUrl } : undefined,
-    });
-    setCreatedAppId(newApp.id);
-    await refetchApp();
-  }, [createApplication, entityName, repoUrl, refetchApp]);
+    if (!application)
+      throw new Error(
+        'Connect this component to a Hub application before discovery.',
+      );
+    const task = await triggerDiscovery(application.id);
+    if (currentAppId.current === application.id) {
+      setSubmittedTask({ appId: application.id, task });
+    }
+  }, [application, triggerDiscovery]);
 
   const startAnalysis = useCallback(
-    async (targets: string[]) => {
-      if (!effectiveAppId) {
-        throw new Error('Cannot run analysis without an application ID');
+    async (profileId: number) => {
+      if (!application)
+        throw new Error(
+          'Connect this component to a Hub application before analysis.',
+        );
+      if (!profiles.some(profile => profile.id === profileId)) {
+        throw new Error(
+          'Select an effective analysis profile for this application.',
+        );
       }
-      lastTargetsRef.current = targets;
-      const task = await triggerAnalysis(effectiveAppId, targets);
-      setActiveTaskId(task.id);
+      const task = await triggerAnalysis(application.id, profileId);
+      if (currentAppId.current === application.id) {
+        setSubmittedTask({ appId: application.id, task });
+      }
     },
-    [effectiveAppId, triggerAnalysis],
+    [application, profiles, triggerAnalysis],
   );
 
   const retryAnalysis = useCallback(async () => {
-    await startAnalysis(lastTargetsRef.current);
-  }, [startAnalysis]);
-
-  // Derive phase state
-  let phase: MigrationStatus = 'Not Started';
-
-  if (!effectiveAppId || (!appLoading && !application)) {
-    phase = 'Not Started';
-  } else if (application) {
-    const hasTags = (application.tags?.length ?? 0) > 0;
-    if (!hasTags && (!activeTask || activeTask.state === 'Created')) {
-      phase = 'Discovery';
-    } else if (activeTask) {
-      if (
-        activeTask.state === 'Created' ||
-        activeTask.state === 'Pending' ||
-        activeTask.state === 'Running'
-      ) {
-        phase = 'Analysis';
-      } else if (activeTask.state === 'Succeeded') {
-        phase = 'Active';
-      } else if (
-        activeTask.state === 'Failed' ||
-        activeTask.state === 'Canceled'
-      ) {
-        phase = 'Failed';
-      } else {
-        phase = 'Path Selection';
-      }
-    } else if (issues.length > 0) {
-      phase = 'Active';
-    } else {
-      phase = 'Path Selection';
+    if (activeTask && isDiscoveryTask(activeTask)) {
+      await startDiscovery();
+      return;
     }
-  }
+    const profileId = activeTask?.data?.profile?.id;
+    if (typeof profileId !== 'number') {
+      throw new Error('Select an analysis profile to retry this task.');
+    }
+    await startAnalysis(profileId);
+  }, [activeTask, startDiscovery, startAnalysis]);
 
-  const combinedError =
-    actionError ||
-    appError ||
-    archetypesError ||
-    issuesError ||
-    taskError ||
-    (activeTask?.state === 'Failed'
-      ? new Error(activeTask.errors?.join(', ') || 'Analysis failed')
-      : null);
-
-  const loading =
-    appLoading ||
-    archetypesLoading ||
-    (Boolean(effectiveAppId) && issuesLoading) ||
-    taskLoading;
+  const phase = deriveKonveyorPhase(
+    activeTask
+      ? [...tasks.filter(task => task.id !== activeTask.id), activeTask]
+      : tasks,
+    lifecycle.appId === appId && lifecycle.hasAnalysis,
+  );
+  const missingApplication =
+    appId && !appLoading && !application && !appError
+      ? new Error(
+          `Hub application ${appId} was not found. Correct the konveyor.io/application-id annotation or restore the application in Hub.`,
+        )
+      : null;
 
   return {
     phase,
     application,
-    archetypes,
+    profiles,
     issues,
-    activeTask,
-    loading,
-    error: combinedError,
+    activeTask: activeTask ?? null,
+    loading:
+      Boolean(appId) &&
+      (appLoading ||
+        lifecycle.loading ||
+        lifecycle.appId !== appId ||
+        issuesLoading ||
+        taskLoading),
+    error:
+      actionError ||
+      appError ||
+      missingApplication ||
+      lifecycle.error ||
+      taskError,
+    issuesError,
     isExecuting,
     startDiscovery,
     startAnalysis,
     retryAnalysis,
+    refresh,
   };
 }

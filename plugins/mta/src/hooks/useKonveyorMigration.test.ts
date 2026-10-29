@@ -1,14 +1,11 @@
-import { act, renderHook } from '@testing-library/react';
-import type {
-  KonveyorApplication,
-  KonveyorArchetype,
-  KonveyorTask,
-} from '../api/types';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import type { MtaApi } from '../api';
+import type { KonveyorAnalysisProfile, KonveyorTask } from '../api/types';
 import { useKonveyorActions } from './useKonveyorActions';
 import {
   useKonveyorApplication,
-  useKonveyorArchetypes,
   useKonveyorIssues,
+  useMtaApi,
 } from './useKonveyorData';
 import { useKonveyorMigration } from './useKonveyorMigration';
 import { useMtaAnalysis } from './useMtaAnalysis';
@@ -17,278 +14,247 @@ jest.mock('./useKonveyorActions');
 jest.mock('./useKonveyorData');
 jest.mock('./useMtaAnalysis');
 
-const mockUseKonveyorActions = useKonveyorActions as jest.MockedFunction<
+const mockUseActions = useKonveyorActions as jest.MockedFunction<
   typeof useKonveyorActions
 >;
-const mockUseKonveyorApplication = useKonveyorApplication as jest.MockedFunction<
+const mockUseApplication = useKonveyorApplication as jest.MockedFunction<
   typeof useKonveyorApplication
 >;
-const mockUseKonveyorArchetypes = useKonveyorArchetypes as jest.MockedFunction<
-  typeof useKonveyorArchetypes
->;
-const mockUseKonveyorIssues = useKonveyorIssues as jest.MockedFunction<
+const mockUseIssues = useKonveyorIssues as jest.MockedFunction<
   typeof useKonveyorIssues
 >;
-const mockUseMtaAnalysis = useMtaAnalysis as jest.MockedFunction<
+const mockUseMtaApi = useMtaApi as jest.MockedFunction<typeof useMtaApi>;
+const mockUseAnalysis = useMtaAnalysis as jest.MockedFunction<
   typeof useMtaAnalysis
 >;
 
+const profile: KonveyorAnalysisProfile = {
+  id: 7,
+  name: 'Spring modernization',
+  mode: { withDeps: false },
+  scope: { withKnownLibs: false },
+  rules: { targets: [{ id: 3, name: 'Spring 6' }] },
+};
+
 describe('useKonveyorMigration', () => {
-  let mockCreateApplication: jest.Mock;
-  let mockTriggerAnalysis: jest.Mock;
-  let mockRefetchApp: jest.Mock;
+  let getTasks: jest.Mock;
+  let getProfiles: jest.Mock;
+  let getAnalysis: jest.Mock;
+  let triggerDiscovery: jest.Mock;
+  let triggerAnalysis: jest.Mock;
+  let refetchApp: jest.Mock;
+  let refetchIssues: jest.Mock;
 
   beforeEach(() => {
-    mockCreateApplication = jest.fn();
-    mockTriggerAnalysis = jest.fn();
-    mockRefetchApp = jest.fn();
-
-    mockUseKonveyorActions.mockReturnValue({
-      createApplication: mockCreateApplication,
-      triggerAnalysis: mockTriggerAnalysis,
-      isExecuting: false,
-      actionError: null,
-    });
-
-    mockUseKonveyorArchetypes.mockReturnValue({
-      archetypes: [{ id: 1, name: 'Quarkus' } as KonveyorArchetype],
+    getTasks = jest.fn().mockResolvedValue([]);
+    getProfiles = jest.fn().mockResolvedValue([profile]);
+    getAnalysis = jest.fn().mockResolvedValue(null);
+    triggerDiscovery = jest.fn();
+    triggerAnalysis = jest.fn();
+    refetchApp = jest.fn().mockResolvedValue(undefined);
+    refetchIssues = jest.fn().mockResolvedValue(undefined);
+    mockUseMtaApi.mockReturnValue({
+      getApplicationTasks: getTasks,
+      getAnalysisProfiles: getProfiles,
+      getAnalysis,
+    } as unknown as MtaApi);
+    mockUseApplication.mockReturnValue({
+      application: {
+        id: 1,
+        name: 'sample-service',
+        repository: { url: 'https://example.com/service.git' },
+      },
       loading: false,
       error: null,
-      refetch: jest.fn(),
+      refetch: refetchApp,
     });
-
-    mockUseKonveyorIssues.mockReturnValue({
+    mockUseIssues.mockReturnValue({
       issues: [],
       rawInsights: [],
       loading: false,
       error: null,
-      refetch: jest.fn(),
+      refetch: refetchIssues,
     });
-
-    mockUseMtaAnalysis.mockReturnValue({
+    mockUseAnalysis.mockReturnValue({
       task: null,
       loading: false,
       error: null,
-      refetch: jest.fn(),
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+    mockUseActions.mockReturnValue({
+      createApplication: jest.fn(),
+      triggerDiscovery,
+      triggerAnalysis,
+      isExecuting: false,
+      actionError: null,
+      clearActionError: jest.fn(),
     });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  afterEach(() => jest.clearAllMocks());
 
-  it('defaults to Not Started phase when no application is found', () => {
-    mockUseKonveyorApplication.mockReturnValue({
-      application: null,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-      }),
+  it('does not create or load a Hub application for an unconnected component', async () => {
+    const { result } = renderHook(() => useKonveyorMigration({}));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.application).toBeNull();
+    expect(getTasks).not.toHaveBeenCalled();
+    await expect(result.current.startDiscovery()).rejects.toThrow(
+      /Connect this component/,
     );
-
-    expect(result.current.phase).toBe('Not Started');
+    expect(triggerDiscovery).not.toHaveBeenCalled();
   });
 
-  it('enters Discovery phase when application has no tags', () => {
-    const app: KonveyorApplication = {
-      id: 1,
-      name: 'sample-service',
-      tags: [],
-    };
+  it.each([
+    'Ready',
+    'Postponed',
+    'QuotaBlocked',
+    'Pending',
+    'Running',
+  ] as const)(
+    'restores an analysis task in %s state from the application task endpoint',
+    async state => {
+      const task: KonveyorTask = {
+        id: 12,
+        addon: 'analyzer',
+        kind: 'analyzer',
+        state,
+      };
+      getTasks.mockResolvedValue([task]);
+      const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(getTasks).toHaveBeenCalledWith(1);
+      expect(result.current.activeTask).toEqual(task);
+      expect(result.current.phase).toBe('Analysis');
+      expect(mockUseAnalysis).toHaveBeenLastCalledWith(12);
+    },
+  );
 
-    mockUseKonveyorApplication.mockReturnValue({
-      application: app,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        appId: 1,
-      }),
-    );
-
-    expect(result.current.phase).toBe('Discovery');
-  });
-
-  it('enters Path Selection phase when application has tags and no active task', () => {
-    const app: KonveyorApplication = {
-      id: 1,
-      name: 'sample-service',
-      tags: [{ id: 10, name: 'Java' }],
-    };
-
-    mockUseKonveyorApplication.mockReturnValue({
-      application: app,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        appId: 1,
-      }),
-    );
-
+  it('restores technology discovery without presenting it as completed analysis', async () => {
+    getTasks.mockResolvedValue([
+      { id: 9, addon: 'analyzer', kind: 'tech-discovery', state: 'Succeeded' },
+    ]);
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.phase).toBe('Path Selection');
   });
 
-  it('enters Analysis phase when analysis task is Running', () => {
-    const app: KonveyorApplication = {
-      id: 1,
-      name: 'sample-service',
-      tags: [{ id: 10, name: 'Java' }],
-      tasks: [100],
-    };
-    const task: KonveyorTask = {
-      id: 100,
-      addon: 'analyzer',
-      state: 'Running',
-    };
-
-    mockUseKonveyorApplication.mockReturnValue({
-      application: app,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
+  it('submits real discovery for the existing application', async () => {
+    triggerDiscovery.mockResolvedValue({
+      id: 15,
+      kind: 'language-discovery',
+      addon: 'language-discovery',
+      state: 'Ready',
     });
-
-    mockUseMtaAnalysis.mockReturnValue({
-      task,
-      loading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        appId: 1,
-      }),
-    );
-
-    expect(result.current.phase).toBe('Analysis');
-  });
-
-  it('enters Active phase when analysis task has Succeeded', () => {
-    const app: KonveyorApplication = {
-      id: 1,
-      name: 'sample-service',
-      tags: [{ id: 10, name: 'Java' }],
-      tasks: [100],
-    };
-    const task: KonveyorTask = {
-      id: 100,
-      addon: 'analyzer',
-      state: 'Succeeded',
-    };
-
-    mockUseKonveyorApplication.mockReturnValue({
-      application: app,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    mockUseMtaAnalysis.mockReturnValue({
-      task,
-      loading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        appId: 1,
-      }),
-    );
-
-    expect(result.current.phase).toBe('Active');
-  });
-
-  it('enters Failed phase when analysis task has Failed', () => {
-    const app: KonveyorApplication = {
-      id: 1,
-      name: 'sample-service',
-      tags: [{ id: 10, name: 'Java' }],
-      tasks: [100],
-    };
-    const task: KonveyorTask = {
-      id: 100,
-      addon: 'analyzer',
-      state: 'Failed',
-      errors: ['Compilation error'],
-    };
-
-    mockUseKonveyorApplication.mockReturnValue({
-      application: app,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    mockUseMtaAnalysis.mockReturnValue({
-      task,
-      loading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        appId: 1,
-      }),
-    );
-
-    expect(result.current.phase).toBe('Failed');
-  });
-
-  it('triggers createApplication when startDiscovery is invoked', async () => {
-    mockUseKonveyorApplication.mockReturnValue({
-      application: null,
-      loading: false,
-      error: null,
-      refetch: mockRefetchApp,
-    });
-
-    mockCreateApplication.mockResolvedValueOnce({
-      id: 5,
-      name: 'sample-service',
-    });
-
-    const { result } = renderHook(() =>
-      useKonveyorMigration({
-        entityName: 'sample-service',
-        entityRef: 'component:default/sample-service',
-        repoUrl: 'https://github.com/example/sample',
-      }),
-    );
-
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => {
       await result.current.startDiscovery();
     });
+    expect(triggerDiscovery).toHaveBeenCalledWith(1);
+    expect(result.current.phase).toBe('Discovery');
+    expect(result.current.activeTask?.id).toBe(15);
+  });
 
-    expect(mockCreateApplication).toHaveBeenCalledWith({
-      name: 'sample-service',
-      repository: { url: 'https://github.com/example/sample' },
+  it('submits the selected numeric effective profile and rejects unrelated profiles', async () => {
+    triggerAnalysis.mockResolvedValue({
+      id: 16,
+      addon: 'analyzer',
+      state: 'Ready',
+      data: { profile: { id: 7 } },
     });
-    expect(mockRefetchApp).toHaveBeenCalled();
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await expect(result.current.startAnalysis(999)).rejects.toThrow(
+      /effective analysis profile/,
+    );
+    await act(async () => {
+      await result.current.startAnalysis(7);
+    });
+    expect(triggerAnalysis).toHaveBeenCalledWith(1, 7);
+    expect(triggerAnalysis).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes application, effective profiles and findings after a terminal task', async () => {
+    getTasks.mockResolvedValue([
+      { id: 20, addon: 'analyzer', state: 'Running' },
+    ]);
+    const { result, rerender } = renderHook(() =>
+      useKonveyorMigration({ appId: 1 }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const profileCalls = getProfiles.mock.calls.length;
+    mockUseAnalysis.mockReturnValue({
+      task: { id: 20, addon: 'analyzer', state: 'Succeeded' },
+      loading: false,
+      error: null,
+      refetch: jest.fn().mockResolvedValue(undefined),
+    });
+    rerender();
+    await waitFor(() =>
+      expect(getProfiles.mock.calls.length).toBeGreaterThan(profileCalls),
+    );
+    expect(refetchApp).toHaveBeenCalled();
+    expect(refetchIssues).toHaveBeenCalled();
+    expect(result.current.phase).toBe('Analysis Unavailable');
+  });
+
+  it('recognizes an existing analysis even when it has no findings or task history', async () => {
+    getAnalysis.mockResolvedValue({ id: 3, application: { id: 1 }, effort: 0 });
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.phase).toBe('Active');
+    expect(result.current.issues).toEqual([]);
+  });
+
+  it('does not infer available findings from a succeeded task without a persisted analysis', async () => {
+    getTasks.mockResolvedValue([
+      { id: 20, addon: 'analyzer', state: 'Succeeded' },
+    ]);
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.phase).toBe('Analysis Unavailable');
+    getAnalysis.mockResolvedValue({ id: 4, application: { id: 1 }, effort: 0 });
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.phase).toBe('Active');
+  });
+
+  it('retries a failed analysis using its persisted profile ID after reload', async () => {
+    getTasks.mockResolvedValue([
+      {
+        id: 21,
+        addon: 'analyzer',
+        state: 'Failed',
+        data: { profile: { id: 7 } },
+      },
+    ]);
+    triggerAnalysis.mockResolvedValue({
+      id: 22,
+      addon: 'analyzer',
+      state: 'Ready',
+    });
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.phase).toBe('Failed');
+    await act(async () => {
+      await result.current.retryAnalysis();
+    });
+    expect(triggerAnalysis).toHaveBeenCalledWith(1, 7);
+  });
+
+  it('surfaces missing applications and failed reads instead of presenting Not Started data', async () => {
+    const error = new Error('Hub application 1 not found');
+    mockUseApplication.mockReturnValue({
+      application: null,
+      loading: false,
+      error,
+      refetch: refetchApp,
+    });
+    getTasks.mockRejectedValue(new Error('Hub unavailable'));
+    const { result } = renderHook(() => useKonveyorMigration({ appId: 1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(error);
+    expect(result.current.application).toBeNull();
   });
 });

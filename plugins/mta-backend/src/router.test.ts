@@ -13,6 +13,11 @@ describe('createRouter', () => {
       | 'getApplication'
       | 'createApplication'
       | 'getArchetypes'
+      | 'getApplicationTasks'
+      | 'getAnalysis'
+      | 'getAnalysisProfiles'
+      | 'getTargets'
+      | 'createDiscoveryTask'
       | 'createAnalysisTask'
       | 'getTask'
       | 'getInsights'
@@ -26,6 +31,11 @@ describe('createRouter', () => {
       getApplication: jest.fn(),
       createApplication: jest.fn(),
       getArchetypes: jest.fn(),
+      getApplicationTasks: jest.fn(),
+      getAnalysis: jest.fn(),
+      getAnalysisProfiles: jest.fn(),
+      getTargets: jest.fn(),
+      createDiscoveryTask: jest.fn(),
       createAnalysisTask: jest.fn(),
       getTask: jest.fn(),
       getInsights: jest.fn(),
@@ -67,12 +77,17 @@ describe('createRouter', () => {
     it('returns 400 for non-numeric id', async () => {
       const res = await request(app).get('/applications/invalid-id');
       expect(res.status).toBe(400);
-      expect(res.body.error.message).toBe('Invalid application ID');
+      expect(res.body.error.status).toBe(400);
     });
 
     it('propagates 404 from KonveyorClient', async () => {
       mockClient.getApplication.mockRejectedValueOnce(
-        new KonveyorClientError(404, 'Not Found', '/hub/applications/99', 'App not found'),
+        new KonveyorClientError(
+          404,
+          'Not Found',
+          '/hub/applications/99',
+          'App not found',
+        ),
       );
       const res = await request(app).get('/applications/99');
       expect(res.status).toBe(404);
@@ -113,22 +128,31 @@ describe('createRouter', () => {
       mockClient.createAnalysisTask.mockResolvedValueOnce({
         id: 42,
         addon: 'analyzer',
-        state: 'Created',
+        state: 'Ready',
       });
       const res = await request(app)
         .post('/applications/1/analyze')
-        .send({ targets: ['quarkus'] });
+        .send({ profileId: 7 });
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ id: 42, addon: 'analyzer', state: 'Created' });
-      expect(mockClient.createAnalysisTask).toHaveBeenCalledWith(1, {
-        targets: ['quarkus'],
-      });
+      expect(res.body).toEqual({ id: 42, addon: 'analyzer', state: 'Ready' });
+      expect(mockClient.createAnalysisTask).toHaveBeenCalledWith(1, 7);
     });
 
     it('returns 400 for non-numeric application id', async () => {
       const res = await request(app).post('/applications/abc/analyze');
       expect(res.status).toBe(400);
     });
+
+    it.each([{}, { profileId: '7' }, { profileId: 0 }, { profileId: -1 }])(
+      'rejects missing or invalid profile selection %j',
+      async body => {
+        const res = await request(app)
+          .post('/applications/1/analyze')
+          .send(body);
+        expect(res.status).toBe(400);
+        expect(mockClient.createAnalysisTask).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('GET /tasks/:id', () => {
@@ -196,10 +220,92 @@ describe('createRouter', () => {
     });
   });
 
+  describe('Live Hub application resources', () => {
+    it('returns explicit task history without application.tasks', async () => {
+      const task = {
+        id: 1,
+        kind: 'language-discovery',
+        addon: 'language-discovery',
+        state: 'Succeeded' as const,
+        data: { source: 'language-discovery' },
+      };
+      mockClient.getApplicationTasks.mockResolvedValueOnce([task]);
+      const res = await request(app).get('/applications/1/tasks');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([task]);
+      expect(mockClient.getApplicationTasks).toHaveBeenCalledWith(1);
+    });
+
+    it('returns null when the existing application has no analysis', async () => {
+      mockClient.getAnalysis.mockResolvedValueOnce(null);
+      const res = await request(app).get('/applications/1/analysis');
+      expect(res.status).toBe(200);
+      expect(res.body).toBeNull();
+    });
+
+    it('returns effective profiles and real target labels', async () => {
+      const profile = {
+        id: 7,
+        name: 'Spring 6',
+        mode: { withDeps: false },
+        scope: { withKnownLibs: false },
+        rules: { targets: [{ id: 3, name: 'Spring Framework' }] },
+      };
+      const target = {
+        id: 3,
+        name: 'Spring Framework',
+        labels: [{ name: 'Spring 6', label: 'konveyor.io/target=spring6' }],
+      };
+      mockClient.getAnalysisProfiles.mockResolvedValueOnce([profile]);
+      mockClient.getTargets.mockResolvedValueOnce([target]);
+      expect(
+        (await request(app).get('/applications/1/analysis/profiles')).body,
+      ).toEqual([profile]);
+      expect((await request(app).get('/targets')).body).toEqual([target]);
+    });
+
+    it('returns the submitted discovery task', async () => {
+      const task = {
+        id: 3,
+        kind: 'language-discovery',
+        addon: 'language-discovery',
+        state: 'Ready' as const,
+        data: { source: 'language-discovery' },
+      };
+      mockClient.createDiscoveryTask.mockResolvedValueOnce(task);
+      const res = await request(app).post('/applications/1/discover');
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(task);
+      expect(mockClient.createDiscoveryTask).toHaveBeenCalledWith(1);
+    });
+
+    it.each([401, 403, 404])(
+      'preserves upstream resource status %s',
+      async status => {
+        mockClient.getAnalysis.mockRejectedValueOnce(
+          new KonveyorClientError(
+            status,
+            'Hub error',
+            '/hub/applications/1/analysis',
+            'Access failed',
+          ),
+        );
+        const res = await request(app).get('/applications/1/analysis');
+        expect(res.status).toBe(status);
+        expect(res.body.error.status).toBe(status);
+      },
+    );
+  });
+
   describe('Error propagation', () => {
     it('propagates upstream 500 error status', async () => {
       mockClient.getApplications.mockRejectedValueOnce(
-        new KonveyorClientError(500, 'Server Error', '/hub/applications', 'Hub crashed'),
+        new KonveyorClientError(
+          500,
+          'Server Error',
+          '/hub/applications',
+          'Hub crashed',
+        ),
       );
       const res = await request(app).get('/applications');
       expect(res.status).toBe(500);

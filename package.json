@@ -7,9 +7,11 @@
     "node": "22 || 24"
   },
   "scripts": {
-    "start": "backstage-cli repo start",
-    "start:frontend": "backstage-cli repo start app",
-    "start:backend": "backstage-cli repo start backend",
+    "start": "yarn dev:catalog && backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml",
+    "dev:catalog": "node dev/konveyor/sync-catalog.mjs",
+    "dev:start": "yarn start",
+    "start:frontend": "backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml app",
+    "start:backend": "yarn dev:catalog && backstage-cli repo start --config ../../app-config.yaml --config ../../dev/konveyor/app-config.yaml backend",
     "start:tmux": "tmux new-session -s backstage -n backend -d 'yarn start:backend' && tmux new-window -t backstage -n frontend 'yarn start:frontend' && tmux attach -t backstage",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",

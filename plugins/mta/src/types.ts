@@ -18,9 +18,8 @@ export type MigrationStatus =
   | 'Discovery'
   | 'Path Selection'
   | 'Analysis'
+  | 'Analysis Unavailable'
   | 'Active'
-  | 'Post-remediation'
-  | 'Completed'
   | 'Failed';
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'info';
@@ -32,57 +31,7 @@ export type IssueCategory =
   | 'code-pattern'
   | 'deployment';
 
-export type ActionType =
-  | 'generate-deployment-assets'
-  | 'trigger-ai-remediator'
-  | 'run-analysis'
-  | 'launch-workspace'
-  | 'view-issues'
-  | 'apply-quick-fixes';
-
-export type ActionStatus = 'pending' | 'running' | 'completed' | 'failed';
-
 export type Persona = 'architect' | 'developer';
-
-export type DeliveryMethod = 'commit-branch' | 'create-pr' | 'download';
-
-export interface Archetype {
-  id: string;
-  name: string;
-  description: string;
-  criteriaTags: string[];
-  icon: string;
-}
-
-export interface TargetProfile {
-  id: string;
-  name: string;
-  description: string;
-  platform: string;
-  analysisProfileName: string;
-  analysisTargets: string[];
-  generatorName?: string;
-}
-
-export interface MtaApplication {
-  id: string;
-  name: string;
-  repoUrl: string;
-  discoveredTags: string[];
-  archetypeId: string;
-  targetProfileId: string;
-  status: MigrationStatus;
-  issuesCount: number;
-  criticalIssues: number;
-  storyPoints: number;
-  filesAffected: number;
-  totalIssuesDiscovered: number;
-  entityRef?: string;
-  devSpacesAvailable?: boolean;
-  devSpacesActive?: boolean;
-  devSpacesUser?: string;
-  devSpacesStartedAt?: string;
-}
 
 export interface MigrationIssue {
   id: string;
@@ -90,40 +39,11 @@ export interface MigrationIssue {
   severity: IssueSeverity;
   category: IssueCategory;
   description: string;
-  file: string;
-  line: number;
-  aiFixAvailable: boolean;
+  file?: string;
+  line?: number;
   problem?: string;
-  impact?: string;
-  fixGuidance?: string;
-  resolved?: boolean;
-}
-
-export interface DeploymentAsset {
-  name: string;
-  path: string;
-  type: 'container' | 'ci-cd' | 'kubernetes' | 'openshift';
-}
-
-export interface DevSpacesConfig {
-  namespace: string;
-  memory: string;
-  storage: string;
-  idleTimeout: string;
-  extensions: string[];
-  features: string[];
-}
-
-export interface ActionHistoryEntry {
-  id: string;
-  appId: string;
-  action: ActionType;
-  timestamp: string;
-  status: ActionStatus;
-  triggeredBy: 'architect' | 'developer';
-}
-
-export interface SupportContact {
-  name: string;
-  email: string;
+  message?: string;
+  codeSnip?: string;
+  links?: Array<{ title: string; url: string }>;
+  effort?: number;
 }

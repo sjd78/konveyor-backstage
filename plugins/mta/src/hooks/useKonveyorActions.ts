@@ -6,18 +6,18 @@ export interface UseKonveyorActionsResult {
   createApplication: (
     appData: Partial<KonveyorApplication>,
   ) => Promise<KonveyorApplication>;
-  triggerAnalysis: (
-    appId: number,
-    targets: string[],
-  ) => Promise<KonveyorTask>;
+  triggerDiscovery: (appId: number) => Promise<KonveyorTask>;
+  triggerAnalysis: (appId: number, profileId: number) => Promise<KonveyorTask>;
   isExecuting: boolean;
   actionError: Error | null;
+  clearActionError: () => void;
 }
 
 export function useKonveyorActions(): UseKonveyorActionsResult {
   const mtaApi = useMtaApi();
   const [isExecuting, setIsExecuting] = useState(false);
   const [actionError, setActionError] = useState<Error | null>(null);
+  const clearActionError = useCallback(() => setActionError(null), []);
 
   const createApplication = useCallback(
     async (
@@ -38,12 +38,29 @@ export function useKonveyorActions(): UseKonveyorActionsResult {
     [mtaApi],
   );
 
-  const triggerAnalysis = useCallback(
-    async (appId: number, targets: string[]): Promise<KonveyorTask> => {
+  const triggerDiscovery = useCallback(
+    async (appId: number): Promise<KonveyorTask> => {
       setIsExecuting(true);
       setActionError(null);
       try {
-        return await mtaApi.triggerAnalysis(appId, targets);
+        return await mtaApi.triggerDiscovery(appId);
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setActionError(error);
+        throw error;
+      } finally {
+        setIsExecuting(false);
+      }
+    },
+    [mtaApi],
+  );
+
+  const triggerAnalysis = useCallback(
+    async (appId: number, profileId: number): Promise<KonveyorTask> => {
+      setIsExecuting(true);
+      setActionError(null);
+      try {
+        return await mtaApi.triggerAnalysis(appId, profileId);
       } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         setActionError(error);
@@ -57,8 +74,10 @@ export function useKonveyorActions(): UseKonveyorActionsResult {
 
   return {
     createApplication,
+    triggerDiscovery,
     triggerAnalysis,
     isExecuting,
     actionError,
+    clearActionError,
   };
 }

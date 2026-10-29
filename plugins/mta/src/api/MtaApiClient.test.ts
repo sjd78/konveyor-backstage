@@ -1,5 +1,5 @@
 import type { DiscoveryApi } from '@backstage/core-plugin-api';
-import { MtaApiClient } from './MtaApiClient';
+import { MtaApiClient, MtaApiError } from './MtaApiClient';
 
 describe('MtaApiClient', () => {
   const originalFetch = global.fetch;
@@ -12,7 +12,9 @@ describe('MtaApiClient', () => {
     global.fetch = mockFetch;
 
     mockDiscoveryApi = {
-      getBaseUrl: jest.fn().mockResolvedValue('http://localhost:7007/api/mta-backend'),
+      getBaseUrl: jest
+        .fn()
+        .mockResolvedValue('http://localhost:7007/api/mta-backend'),
     };
 
     client = new MtaApiClient(mockDiscoveryApi);
@@ -94,16 +96,26 @@ describe('MtaApiClient', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 201,
-      json: async () => ({ id: 100, state: 'Created' }),
+      json: async () => ({
+        id: 100,
+        kind: 'analyzer',
+        state: 'Ready',
+        data: { profile: { id: 7 } },
+      }),
     });
 
-    const task = await client.triggerAnalysis(1, ['quarkus']);
-    expect(task).toEqual({ id: 100, state: 'Created' });
+    const task = await client.triggerAnalysis(1, 7);
+    expect(task).toEqual({
+      id: 100,
+      kind: 'analyzer',
+      state: 'Ready',
+      data: { profile: { id: 7 } },
+    });
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/mta-backend/applications/1/analyze',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ targets: ['quarkus'] }),
+        body: JSON.stringify({ profileId: 7 }),
       }),
     );
   });
@@ -151,6 +163,97 @@ describe('MtaApiClient', () => {
       'http://localhost:7007/api/mta-backend/insights/1/incidents',
       expect.any(Object),
     );
+  });
+
+  it('fetches explicit application task history', async () => {
+    const tasks = [
+      {
+        id: 1,
+        kind: 'language-discovery',
+        addon: 'language-discovery',
+        state: 'Succeeded',
+        data: { source: 'language-discovery' },
+      },
+    ];
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => tasks });
+    await expect(client.getApplicationTasks(1)).resolves.toEqual(tasks);
+    expect(mockFetch.mock.calls[0][0]).toBe(
+      'http://localhost:7007/api/mta-backend/applications/1/tasks',
+    );
+  });
+
+  it('retains null analysis separately from a missing application error', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => null })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => JSON.stringify({ error: { status: 404 } }),
+      });
+    await expect(client.getAnalysis(1)).resolves.toBeNull();
+    await expect(client.getAnalysis(999)).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
+  it('fetches effective analysis profiles and installed targets', async () => {
+    const profiles = [
+      {
+        id: 7,
+        name: 'Spring 6',
+        mode: { withDeps: false },
+        scope: { withKnownLibs: false },
+        rules: { targets: [{ id: 3 }] },
+      },
+    ];
+    const targets = [
+      {
+        id: 3,
+        name: 'Spring Framework',
+        labels: [{ name: 'Spring 6', label: 'konveyor.io/target=spring6' }],
+      },
+    ];
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => profiles })
+      .mockResolvedValueOnce({ ok: true, json: async () => targets });
+    await expect(client.getAnalysisProfiles(1)).resolves.toEqual(profiles);
+    await expect(client.getTargets()).resolves.toEqual(targets);
+    expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
+      'http://localhost:7007/api/mta-backend/applications/1/analysis/profiles',
+      'http://localhost:7007/api/mta-backend/targets',
+    ]);
+  });
+
+  it('triggers discovery without inventing local task results', async () => {
+    const task = {
+      id: 2,
+      kind: 'language-discovery',
+      addon: 'language-discovery',
+      state: 'Ready',
+    };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => task });
+    await expect(client.triggerDiscovery(1)).resolves.toEqual(task);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/mta-backend/applications/1/discover',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it.each([401, 403])('retains typed authorization status %s', async status => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status,
+      statusText: 'Access denied',
+      text: async () => 'Hub authorization failed',
+    });
+    try {
+      await client.getApplication(1);
+      throw new Error('Expected authorization failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(MtaApiError);
+      expect(error).toMatchObject({ status, body: 'Hub authorization failed' });
+    }
   });
 
   it('throws descriptive error on failure', async () => {

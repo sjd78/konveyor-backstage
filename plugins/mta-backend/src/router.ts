@@ -22,6 +22,19 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   const router = RouterBuilder();
   router.use(express.json());
 
+  router.param(
+    'id',
+    (_req: Request, res: Response, next: NextFunction, value: string) => {
+      if (!Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
+        res.status(400).json({
+          error: { message: 'Invalid resource ID', status: 400 },
+        });
+        return;
+      }
+      next();
+    },
+  );
+
   router.get('/applications', async (_req: Request, res: Response) => {
     const apps = await client.getApplications();
     res.json(apps);
@@ -29,10 +42,6 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.get('/applications/:id', async (req: Request, res: Response) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) {
-      res.status(400).json({ error: { message: 'Invalid application ID', status: 400 } });
-      return;
-    }
     const app = await client.getApplication(id);
     res.json(app);
   });
@@ -47,42 +56,72 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     res.json(archetypes);
   });
 
-  router.post('/applications/:id/analyze', async (req: Request, res: Response) => {
-    const id = Number(req.params.id);
-    if (Number.isNaN(id)) {
-      res.status(400).json({ error: { message: 'Invalid application ID', status: 400 } });
-      return;
-    }
-    const task = await client.createAnalysisTask(id, req.body);
-    res.status(201).json(task);
+  router.get('/applications/:id/tasks', async (req: Request, res: Response) => {
+    res.json(await client.getApplicationTasks(Number(req.params.id)));
   });
+
+  router.get(
+    '/applications/:id/analysis',
+    async (req: Request, res: Response) => {
+      res.json(await client.getAnalysis(Number(req.params.id)));
+    },
+  );
+
+  router.get(
+    '/applications/:id/analysis/profiles',
+    async (req: Request, res: Response) => {
+      res.json(await client.getAnalysisProfiles(Number(req.params.id)));
+    },
+  );
+
+  router.get('/targets', async (_req: Request, res: Response) => {
+    res.json(await client.getTargets());
+  });
+
+  router.post(
+    '/applications/:id/discover',
+    async (req: Request, res: Response) => {
+      res
+        .status(201)
+        .json(await client.createDiscoveryTask(Number(req.params.id)));
+    },
+  );
+
+  router.post(
+    '/applications/:id/analyze',
+    async (req: Request, res: Response) => {
+      const id = Number(req.params.id);
+      if (
+        !Number.isSafeInteger(req.body?.profileId) ||
+        req.body.profileId <= 0
+      ) {
+        res.status(400).json({
+          error: { message: 'Invalid analysis profile ID', status: 400 },
+        });
+        return;
+      }
+      const task = await client.createAnalysisTask(id, req.body.profileId);
+      res.status(201).json(task);
+    },
+  );
 
   router.get('/tasks/:id', async (req: Request, res: Response) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) {
-      res.status(400).json({ error: { message: 'Invalid task ID', status: 400 } });
-      return;
-    }
     const task = await client.getTask(id);
     res.json(task);
   });
 
-  router.get('/applications/:id/issues', async (req: Request, res: Response) => {
-    const id = Number(req.params.id);
-    if (Number.isNaN(id)) {
-      res.status(400).json({ error: { message: 'Invalid application ID', status: 400 } });
-      return;
-    }
-    const issues = await client.getInsights(id);
-    res.json(issues);
-  });
+  router.get(
+    '/applications/:id/issues',
+    async (req: Request, res: Response) => {
+      const id = Number(req.params.id);
+      const issues = await client.getInsights(id);
+      res.json(issues);
+    },
+  );
 
   router.get('/insights/:id/incidents', async (req: Request, res: Response) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) {
-      res.status(400).json({ error: { message: 'Invalid insight ID', status: 400 } });
-      return;
-    }
     const incidents = await client.getIncidents(id);
     res.json(incidents);
   });
@@ -104,9 +143,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         ? req.query.owner
         : 'user:default/guest';
     const system =
-      typeof req.query.system === 'string'
-        ? req.query.system
-        : 'mta-portfolio';
+      typeof req.query.system === 'string' ? req.query.system : 'mta-portfolio';
     const repoUrl =
       typeof req.query.repoUrl === 'string' ? req.query.repoUrl : '';
     const tags =

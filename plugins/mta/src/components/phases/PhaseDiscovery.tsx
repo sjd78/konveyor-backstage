@@ -1,57 +1,45 @@
 import Box from '@material-ui/core/Box';
-import CircularProgress from '@material-ui/core/CircularProgress';
 import LinearProgress from '@material-ui/core/LinearProgress';
 import Typography from '@material-ui/core/Typography';
 import { InfoCard } from '@backstage/core-components';
-import { useStyles } from '../shared/migrationTabStyles';
+import type { KonveyorApplication, KonveyorTask } from '../../api/types';
 
-export function PhaseDiscovery({ repoUrl }: { repoUrl: string }) {
-  const classes = useStyles();
-
+export function PhaseDiscovery({
+  app,
+  task,
+}: {
+  app: KonveyorApplication;
+  task: KonveyorTask | null;
+}) {
+  const repository = app.repository;
   return (
     <Box mb={2}>
-      <InfoCard title="Scanning repository">
-        <Box display="flex" alignItems="center" mb={2} style={{ gap: 12 }}>
-          <CircularProgress size={20} />
+      <InfoCard
+        title="Repository discovery"
+        subheader={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
+      >
+        <LinearProgress />
+        <Box my={2}>
           <Typography variant="body2">
-            Identifying technologies in source code
+            {task?.activity?.[task.activity.length - 1] ||
+              'Waiting for Hub discovery results.'}
           </Typography>
         </Box>
-        <LinearProgress style={{ marginBottom: 16 }} />
-        {repoUrl && (
-          <div className={classes.configRow}>
-            <span className={classes.configKey}>Repository</span>
-            <Typography
-              variant="body2"
-              style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-            >
-              {repoUrl.replace(/^https?:\/\//, '')}
-            </Typography>
-          </div>
-        )}
-        <Box
-          mt={2}
-          p={1.5}
-          borderRadius={4}
-          bgcolor="action.hover"
-          border={1}
-          borderColor="divider"
-        >
-          <Typography
-            variant="caption"
-            color="textSecondary"
-            style={{
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              fontWeight: 600,
-            }}
-            gutterBottom
-          >
-            What happens next
+        <Typography variant="body2">
+          Repository: {repository?.url || 'Not configured in Hub'}
+        </Typography>
+        {(repository?.branch || repository?.tag) && (
+          <Typography variant="body2">
+            Ref: {repository.branch || repository.tag}
           </Typography>
+        )}
+        {repository?.path && (
+          <Typography variant="body2">Path: {repository.path}</Typography>
+        )}
+        <Box mt={2}>
           <Typography variant="body2" color="textSecondary">
-            Results will show detected technologies, matched application type,
-            and available migration paths.
+            You can leave this page. Discovery status is restored from Hub tasks
+            when you return.
           </Typography>
         </Box>
       </InfoCard>

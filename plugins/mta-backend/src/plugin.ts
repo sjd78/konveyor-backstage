@@ -36,6 +36,7 @@ export const mtaPlugin = createBackendPlugin({
           '/applications',
           '/archetypes',
           '/tasks',
+          '/targets',
           '/insights',
         ];
         for (const path of unauthenticatedPaths) {
