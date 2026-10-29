@@ -32,4 +32,4 @@
     kind: git
     url: https://github.com/konveyor/spring-framework-petclinic.git
     branch: legacy
-    path: ""
+    path: ''

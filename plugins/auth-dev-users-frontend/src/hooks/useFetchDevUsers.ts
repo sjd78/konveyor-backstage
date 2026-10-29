@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  discoveryApiRef,
-  useApi,
-} from '@backstage/core-plugin-api';
+import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
 
 export interface DevUserGroup {
   groupEntityRef: string;
@@ -21,9 +18,7 @@ export interface DevUser {
  * `/dev-users` endpoint, falling back to `defaultUsers` until the request
  * resolves (or if it fails).
  */
-export function useFetchDevUsers(
-  defaultUsers: DevUser[],
-) {
+export function useFetchDevUsers(defaultUsers: DevUser[]) {
   const discoveryApi = useApi(discoveryApiRef);
   const [error, setError] = useState<string>();
   const [users, setUsers] = useState<DevUser[]>(defaultUsers);

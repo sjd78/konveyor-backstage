@@ -12,12 +12,12 @@ All Hub requests use the Konveyor UI's exposed `/hub` route. Configure `MTA_HUB_
 
 ## Overall story table
 
-| Story | Data involved | Implementing plugins / host code | Future Hub credential boundary |
-|---|---|---|---|
-| 1. Open an accurately connected architect/developer portfolio | Hub application IDs and names; repository URL/ref/path; catalog Component annotations, owner and assigned developer; task/analysis summaries | `dev-host/start/` (`live` scenario), `dev-host/app-config.yaml`, Backstage Catalog, `plugins/mta`, `plugins/mta-backend`; dev-auth packages supply test personas | Mixed: startup inventory read is system-context; subsequent browser-driven reads can use the individual user's Hub access token |
-| 2. Connect registered applications and discover repository technologies | Hub application, persisted catalog application ID, discovery task ID/state/activity/errors, discovered tags | Hub registration UI/API outside Backstage; development catalog snapshot; `plugins/mta` and `plugins/mta-backend` for discovery | User-delegated for registration/discovery interactions; system-context for unattended snapshot; Hub owns addon execution credentials |
-| 3. Select an effective profile and run/monitor analysis | Matching archetype, analysis profile, target selection, analyzer task, lifecycle/events, persisted selected profile | `plugins/mta` (`MigrationTab`, migration/actions/polling hooks, shared lifecycle), `plugins/mta-backend` (`KonveyorClient`, routes) | Individual Hub token is sufficient for interactive profile reads, submit, retry, and polling; task execution is Hub-internal machine-to-machine |
-| 4. Inspect findings, failures, and access/data errors | Analysis metadata, insights, incidents, snippets, source locations, links, task errors; HTTP statuses | `plugins/mta` (findings/home hooks, `PhaseActive`, `IssueDetailPanel`, failure/error panels), `plugins/mta-backend` | Individual Hub token for interactive reads; no service-account fallback on denied reads |
+| Story                                                                   | Data involved                                                                                                                                | Implementing plugins / host code                                                                                                                                 | Future Hub credential boundary                                                                                                                  |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Open an accurately connected architect/developer portfolio           | Hub application IDs and names; repository URL/ref/path; catalog Component annotations, owner and assigned developer; task/analysis summaries | `dev-host/start/` (`live` scenario), `dev-host/app-config.yaml`, Backstage Catalog, `plugins/mta`, `plugins/mta-backend`; dev-auth packages supply test personas | Mixed: startup inventory read is system-context; subsequent browser-driven reads can use the individual user's Hub access token                 |
+| 2. Connect registered applications and discover repository technologies | Hub application, persisted catalog application ID, discovery task ID/state/activity/errors, discovered tags                                  | Hub registration UI/API outside Backstage; development catalog snapshot; `plugins/mta` and `plugins/mta-backend` for discovery                                   | User-delegated for registration/discovery interactions; system-context for unattended snapshot; Hub owns addon execution credentials            |
+| 3. Select an effective profile and run/monitor analysis                 | Matching archetype, analysis profile, target selection, analyzer task, lifecycle/events, persisted selected profile                          | `plugins/mta` (`MigrationTab`, migration/actions/polling hooks, shared lifecycle), `plugins/mta-backend` (`KonveyorClient`, routes)                              | Individual Hub token is sufficient for interactive profile reads, submit, retry, and polling; task execution is Hub-internal machine-to-machine |
+| 4. Inspect findings, failures, and access/data errors                   | Analysis metadata, insights, incidents, snippets, source locations, links, task errors; HTTP statuses                                        | `plugins/mta` (findings/home hooks, `PhaseActive`, `IssueDetailPanel`, failure/error panels), `plugins/mta-backend`                                              | Individual Hub token for interactive reads; no service-account fallback on denied reads                                                         |
 
 ## Credential model used in the diagrams
 
@@ -226,16 +226,17 @@ A full development-host restart regenerated the same three application-ID associ
 
 Created resources are intentionally left in the development Hub for inspection:
 
-| Resource | ID | Purpose |
-|---|---|---|
-| Analysis profile `Backstage Phase 2 - Spring 6` | 1 | Spring Framework target 3 with explicit `konveyor.io/target=spring6` selection |
-| Archetype `Backstage Phase 2 - Java modernization` | 2 | Java tag 404 criteria, target profile referencing analysis profile 1 |
-| Application `Backstage Phase 2 Spring` | 2 | Discovery, effective profile, analysis, findings, and reload validation |
-| Application `Backstage Phase 2 Failure` | 3 | Actual missing-branch task failure and retry validation |
+| Resource                                           | ID  | Purpose                                                                        |
+| -------------------------------------------------- | --- | ------------------------------------------------------------------------------ |
+| Analysis profile `Backstage Phase 2 - Spring 6`    | 1   | Spring Framework target 3 with explicit `konveyor.io/target=spring6` selection |
+| Archetype `Backstage Phase 2 - Java modernization` | 2   | Java tag 404 criteria, target profile referencing analysis profile 1           |
+| Application `Backstage Phase 2 Spring`             | 2   | Discovery, effective profile, analysis, findings, and reload validation        |
+| Application `Backstage Phase 2 Failure`            | 3   | Actual missing-branch task failure and retry validation                        |
 
 Both validation applications use `https://github.com/konveyor/example-applications`, path `example-1`. The failure application's branch is deliberately `backstage-phase2-missing-branch`. The pre-existing `Foo` application (ID 1) and `Archy Alpha` archetype (ID 1) were retained.
 
 Authoritative contracts consulted:
+
 - [Hub application models](https://github.com/konveyor/tackle2-hub/blob/main/shared/api/application.go)
 - [Hub task handlers and submission](https://github.com/konveyor/tackle2-hub/blob/main/internal/api/task.go)
 - [Hub analysis handlers and archive/JSON routes](https://github.com/konveyor/tackle2-hub/blob/main/internal/api/analysis.go)

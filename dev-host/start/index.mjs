@@ -123,7 +123,7 @@ async function main() {
   ];
   console.log(`cwd: ${cwd}`);
   console.log(`command: ${command.flat().join(' ')}`);
-  console.log("");
+  console.log('');
 
   // Don't open a browser tab on start; set BROWSER (shell or .env) to opt back in.
   const env = { ...process.env, BROWSER: process.env.BROWSER ?? 'none' };

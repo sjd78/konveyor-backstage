@@ -1,4 +1,9 @@
-import { IdentityApi, ProfileInfo, BackstageUserIdentity, DiscoveryApi } from "@backstage/core-plugin-api";
+import {
+  IdentityApi,
+  ProfileInfo,
+  BackstageUserIdentity,
+  DiscoveryApi,
+} from '@backstage/core-plugin-api';
 import { DevUser } from '../hooks/useFetchDevUsers';
 
 export class DevUserIdentity implements IdentityApi {
@@ -88,7 +93,10 @@ export interface SessionResponse {
   };
 }
 
-export const signInDevUser = async (user: DevUser, discoveryApi: DiscoveryApi) => {
+export const signInDevUser = async (
+  user: DevUser,
+  discoveryApi: DiscoveryApi,
+) => {
   let session: SessionResponse | undefined = undefined;
 
   try {
@@ -101,7 +109,9 @@ export const signInDevUser = async (user: DevUser, discoveryApi: DiscoveryApi) =
     if (!res.ok) throw new Error(res.statusText);
     session = await res.json();
   } catch (err: unknown) {
-    throw new Error(`Sign-in failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Sign-in failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   if (!session) throw new Error('Sign-in failed: No session received');

@@ -1,7 +1,4 @@
-import {
-  sidebarConfig,
-  useSidebarOpenState,
-} from '@backstage/core-components';
+import { sidebarConfig, useSidebarOpenState } from '@backstage/core-components';
 import { Link } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core';
 import { LogoFull } from './LogoFull';

@@ -72,11 +72,7 @@ function AppSidebar({ navItems }: NavContentComponentProps) {
         {nav.take('page:user-settings')}
       </SidebarGroup>
       <SidebarDivider />
-      <SidebarItem
-        icon={ExitToAppIcon}
-        text="Log out"
-        onClick={handleLogout}
-      />
+      <SidebarItem icon={ExitToAppIcon} text="Log out" onClick={handleLogout} />
     </Sidebar>
   );
 }

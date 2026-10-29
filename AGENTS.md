@@ -9,21 +9,25 @@ Guidance and context for AI agents working in `/home/sdickers/projects/static-ba
 Adopted from [Andrej Karpathy's LLM coding guidelines](https://github.com/multica-ai/andrej-karpathy-skills):
 
 ### Think Before Coding
+
 - **State assumptions explicitly:** When requirements are ambiguous, clarify before generating large diffs.
 - **Surface tradeoffs:** Present concrete options (e.g. legacy vs new frontend system extensions) before implementing.
 - **Stop when blocked:** If a package export or type contract is mismatched, locate the exact symbol in `node_modules` or official docs rather than guessing.
 
 ### Simplicity First
+
 - **Minimal code:** Implement the exact requested feature or fix. No speculative configurability or unused abstraction layers.
 - **Backstage conventions:** Follow standard Backstage Blueprint patterns (`EntityContentBlueprint`, `HomePageWidgetBlueprint`, `PageBlueprint`, `createBackendPlugin`, `createBackendModule`).
 - **Clean removals:** When deleting obsolete files, remove their imports, package declarations, and test fixtures.
 
 ### Surgical Changes
+
 - **Touch only what is necessary:** Do not reformat untouched files or rewrite working legacy code (e.g., prototype Material-UI v4 components).
 - **Match existing style:** Follow the monorepo's ESLint and Prettier rules.
 - **Traceability:** Every edited line must trace directly to a verifiable goal.
 
 ### Goal-Driven Execution
+
 - **Verify at each step:** State a clear check before writing code and run it immediately after.
   ```
   1. Update package.json -> verify: yarn install --no-immutable
@@ -40,6 +44,7 @@ Adopted from [Andrej Karpathy's LLM coding guidelines](https://github.com/multic
 This repository was created to run the **mainline version of Backstage** with the Konveyor / MTA (Migration Toolkit for Applications) plugins migrated from the dynamic plugin prototype in `/home/sdickers/projects/uxd_mta-for-rhdh`.
 
 ### How it was scaffolded:
+
 1. Created via `npx @backstage/create-app --path . --skip-install` under `/home/sdickers/projects/static-backstage`.
 2. Package manager: Yarn Modern (v4) with PnP/node-modules workspace.
 3. Plugins scaffolded with `backstage-cli new` (`yarn new`):
@@ -69,6 +74,7 @@ This repository was created to run the **mainline version of Backstage** with th
 ## 3. Architecture & Invariants
 
 ### Backend Architecture: New Backend System
+
 - **Entry point:** `dev-host/backend/src/index.ts`.
 - All backend extensions use `backend.add(import('<package>'))`.
 - **Plugins** use `createBackendPlugin` from `@backstage/backend-plugin-api`.
@@ -80,6 +86,7 @@ This repository was created to run the **mainline version of Backstage** with th
   - `/api/mta-mock-hub/*` (`/register`, `/applications`, `/support-contact`, `/entity/:id`)
 
 ### Frontend Architecture: New Frontend System
+
 - **Entry point:** `dev-host/app/src/App.tsx`.
 - Defined using `createApp({ features: [catalogPlugin, mtaPlugin, navModule, homeModule, settingsModule, authDevUsersModule] })`.
 - **`plugins/mta/src/alpha.tsx`** exports the frontend plugin with extensions:
@@ -92,15 +99,15 @@ This repository was created to run the **mainline version of Backstage** with th
 
 ## 4. Plugin Inventory
 
-| Plugin | Path | Role | Key Files |
-|---|---|---|---|
-| `@internal/backstage-plugin-mta` | `plugins/mta` | Live migration tab, home cards, `/mta` page | `src/alpha.tsx`, `src/components/MigrationTab.tsx`, `src/hooks/useKonveyorMigration.ts`, `src/api/MtaApiClient.ts` |
-| `@internal/backstage-plugin-mta-backend` | `plugins/mta-backend` | Konveyor Hub proxy (`KonveyorClient`) | `src/plugin.ts`, `src/router.ts`, `src/service/KonveyorClient.ts` |
-| `@internal/backstage-plugin-mta-mock-hub-backend` | `plugins/mta-mock-hub-backend` | In-memory MTA Hub simulator | `src/plugin.ts`, `src/router.ts` |
-| `@internal/backstage-plugin-catalog-backend-module-mta-entity-provider` | `plugins/catalog-backend-module-mta-entity-provider` | Ingests MTA apps into Software Catalog | `src/module.ts` |
-| `@internal/backstage-plugin-scaffolder-backend-module-mta-actions` | `plugins/scaffolder-backend-module-mta-actions` | Custom `mta:register-application` action | `src/module.ts` |
-| `@internal/backstage-plugin-auth-backend-module-dev-users` | `plugins/auth-backend-module-dev-users` | Backend auth module for selectable dev personas | `src/index.ts`, `src/module.ts` |
-| `@internal/backstage-plugin-auth-dev-users-frontend` | `plugins/auth-dev-users-frontend` | Frontend sign-in page plugin for dev personas | `src/index.ts`, `src/plugin.ts`, `src/components/DevUserSignInPage.tsx` |
+| Plugin                                                                  | Path                                                 | Role                                            | Key Files                                                                                                          |
+| ----------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `@internal/backstage-plugin-mta`                                        | `plugins/mta`                                        | Live migration tab, home cards, `/mta` page     | `src/alpha.tsx`, `src/components/MigrationTab.tsx`, `src/hooks/useKonveyorMigration.ts`, `src/api/MtaApiClient.ts` |
+| `@internal/backstage-plugin-mta-backend`                                | `plugins/mta-backend`                                | Konveyor Hub proxy (`KonveyorClient`)           | `src/plugin.ts`, `src/router.ts`, `src/service/KonveyorClient.ts`                                                  |
+| `@internal/backstage-plugin-mta-mock-hub-backend`                       | `plugins/mta-mock-hub-backend`                       | In-memory MTA Hub simulator                     | `src/plugin.ts`, `src/router.ts`                                                                                   |
+| `@internal/backstage-plugin-catalog-backend-module-mta-entity-provider` | `plugins/catalog-backend-module-mta-entity-provider` | Ingests MTA apps into Software Catalog          | `src/module.ts`                                                                                                    |
+| `@internal/backstage-plugin-scaffolder-backend-module-mta-actions`      | `plugins/scaffolder-backend-module-mta-actions`      | Custom `mta:register-application` action        | `src/module.ts`                                                                                                    |
+| `@internal/backstage-plugin-auth-backend-module-dev-users`              | `plugins/auth-backend-module-dev-users`              | Backend auth module for selectable dev personas | `src/index.ts`, `src/module.ts`                                                                                    |
+| `@internal/backstage-plugin-auth-dev-users-frontend`                    | `plugins/auth-dev-users-frontend`                    | Frontend sign-in page plugin for dev personas   | `src/index.ts`, `src/plugin.ts`, `src/components/DevUserSignInPage.tsx`                                            |
 
 ---
 
@@ -128,6 +135,7 @@ yarn start            # or: yarn start --scenario offline   (no Hub needed)
 
 1. **Yarn Lockfile Immutability:**
    Yarn v4 blocks lockfile modifications by default in non-interactive/CI shells. When adding or updating dependencies in any `package.json`, run:
+
    ```sh
    yarn install --no-immutable
    ```

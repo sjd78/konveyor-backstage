@@ -52,14 +52,14 @@ export function UserSettingsIdentityCardWithPersona() {
         <Grid item xs={12}>
           <Typography variant="subtitle1" gutterBottom>
             Ownership Entities:{' '}
-            <EntityRefLinks entityRefs={backstageIdentity.ownershipEntityRefs} />
+            <EntityRefLinks
+              entityRefs={backstageIdentity.ownershipEntityRefs}
+            />
           </Typography>
         </Grid>
         <Grid item xs={12}>
           <Box display="flex" alignItems="center" gridGap={8} mt={0.5}>
-            <Typography variant="subtitle1">
-              MTA Persona:
-            </Typography>
+            <Typography variant="subtitle1">MTA Persona:</Typography>
             {roleLoading ? (
               <Chip label="Loading..." size="small" />
             ) : (

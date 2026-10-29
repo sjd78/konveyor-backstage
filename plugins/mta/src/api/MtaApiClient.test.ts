@@ -247,13 +247,12 @@ describe('MtaApiClient', () => {
       statusText: 'Access denied',
       text: async () => 'Hub authorization failed',
     });
-    try {
-      await client.getApplication(1);
-      throw new Error('Expected authorization failure');
-    } catch (error) {
-      expect(error).toBeInstanceOf(MtaApiError);
-      expect(error).toMatchObject({ status, body: 'Hub authorization failed' });
-    }
+    const result = client.getApplication(1);
+    await expect(result).rejects.toBeInstanceOf(MtaApiError);
+    await expect(result).rejects.toMatchObject({
+      status,
+      body: 'Hub authorization failed',
+    });
   });
 
   it('throws descriptive error on failure', async () => {

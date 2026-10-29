@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   KonveyorAnalysisProfile,
   KonveyorApplication,
@@ -154,7 +154,10 @@ export function useKonveyorMigration({
   }, [fetchLifecycle]);
 
   const tasks = lifecycle.appId === appId ? lifecycle.tasks : [];
-  const profiles = lifecycle.appId === appId ? lifecycle.profiles : [];
+  const profiles = useMemo(
+    () => (lifecycle.appId === appId ? lifecycle.profiles : []),
+    [lifecycle.appId, lifecycle.profiles, appId],
+  );
   const latestTask = getLatestKonveyorTask(
     submittedTask && submittedTask.appId === appId
       ? [...tasks, submittedTask.task]

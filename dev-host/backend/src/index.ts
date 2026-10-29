@@ -28,9 +28,7 @@ backend.add(import('@backstage/plugin-auth-backend'));
 // guest provider: See https://backstage.io/docs/auth/guest/provider
 
 // Replace the guest provider with a custom provider that lets the frontend choose the user.
-backend.add(
-  import('@internal/backstage-plugin-auth-backend-module-dev-users'),
-);
+backend.add(import('@internal/backstage-plugin-auth-backend-module-dev-users'));
 
 // catalog plugin
 backend.add(import('@backstage/plugin-catalog-backend'));
@@ -71,7 +69,13 @@ backend.add(import('@backstage/plugin-signals-backend'));
 backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
 backend.add(import('@internal/backstage-plugin-mta-backend'));
-backend.add(import('@internal/backstage-plugin-catalog-backend-module-mta-entity-provider'));
-backend.add(import('@internal/backstage-plugin-scaffolder-backend-module-mta-actions'));
+backend.add(
+  import(
+    '@internal/backstage-plugin-catalog-backend-module-mta-entity-provider'
+  ),
+);
+backend.add(
+  import('@internal/backstage-plugin-scaffolder-backend-module-mta-actions'),
+);
 backend.add(import('@internal/backstage-plugin-mta-mock-hub-backend'));
 backend.start();

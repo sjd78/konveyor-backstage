@@ -5,6 +5,7 @@ Mainline Backstage instance integrating Konveyor / MTA migration plugins, module
 ## Summary
 
 This monorepo wraps reusable Backstage MTA plugins in a local development host:
+
 - Live application, archetype/profile, task, and analysis reads through the Konveyor UI's `/hub` proxy.
 - Real technology discovery and profile-based analysis submission, polling, and reload recovery.
 - Migration findings with incident locations, snippets, messages, and documentation links.
@@ -35,13 +36,13 @@ See [`dev-host/README.md`](dev-host/README.md) for host details, scenarios, and 
 
 ## Plugin Details
 
-| Plugin / module | Role | Interfaces |
-|---|---|---|
-| `plugins/mta` | Live migration tab, home cards, and `/mta` page | `EntityContentBlueprint`, `HomePageWidgetBlueprint`, `PageBlueprint`, `MtaApiClient` |
-| `plugins/mta-backend` | Hub REST client/proxy | `/api/mta-backend/applications`, per-application tasks/analysis/profiles/discovery/analyze, tasks, incidents, targets, archetypes; `/entity/:name` retained |
-| `plugins/mta-mock-hub-backend` | Legacy demo only | Simulated registration/discovery; not the live Hub |
-| Catalog entity-provider module | Legacy mock ingestion | Scheduled mock-Hub reads, not the development startup snapshot |
-| Scaffolder actions module | Legacy mock registration | `mta:register-application`; not live production registration yet |
+| Plugin / module                | Role                                            | Interfaces                                                                                                                                                  |
+| ------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugins/mta`                  | Live migration tab, home cards, and `/mta` page | `EntityContentBlueprint`, `HomePageWidgetBlueprint`, `PageBlueprint`, `MtaApiClient`                                                                        |
+| `plugins/mta-backend`          | Hub REST client/proxy                           | `/api/mta-backend/applications`, per-application tasks/analysis/profiles/discovery/analyze, tasks, incidents, targets, archetypes; `/entity/:name` retained |
+| `plugins/mta-mock-hub-backend` | Legacy demo only                                | Simulated registration/discovery; not the live Hub                                                                                                          |
+| Catalog entity-provider module | Legacy mock ingestion                           | Scheduled mock-Hub reads, not the development startup snapshot                                                                                              |
+| Scaffolder actions module      | Legacy mock registration                        | `mta:register-application`; not live production registration yet                                                                                            |
 
 ### Catalog connections
 
@@ -74,12 +75,12 @@ Do **not** include `/hub` in `MTA_HUB_BASE_URL`; the client adds it. No port-for
 
 `yarn start` asks which data scenario to prepare (Enter keeps the last choice), writes the gitignored `dev-host/.generated/catalog.yaml`, then launches the frontend on `http://localhost:3000` and backend on `http://localhost:7007`. Skip the prompt with `yarn start --scenario <id>`.
 
-| Scenario | Hub access | MTA Components in the catalog |
-|---|---|---|
-| `live` | Read-only | One connected Component per Hub application |
-| `live-seeded` | Creates missing seed applications (no analysis) | Same as `live`, after provisioning |
-| `live-unconnected` | Read-only | `live` plus seed Components without a Hub ID |
-| `offline` | None | Seed Components without a Hub ID only |
+| Scenario           | Hub access                                      | MTA Components in the catalog                |
+| ------------------ | ----------------------------------------------- | -------------------------------------------- |
+| `live`             | Read-only                                       | One connected Component per Hub application  |
+| `live-seeded`      | Creates missing seed applications (no analysis) | Same as `live`, after provisioning           |
+| `live-unconnected` | Read-only                                       | `live` plus seed Components without a Hub ID |
+| `offline`          | None                                            | Seed Components without a Hub ID only        |
 
 Connected entity names are stable `mta-application-<Hub ID>` values, with the real application name as the title. Edit `dev-host/data/assignments.json` (keyed by application name) to assign applications to catalog users; the supplied validation applications belong to Chen. Other applications belong to the architect portfolio without a developer assignment.
 

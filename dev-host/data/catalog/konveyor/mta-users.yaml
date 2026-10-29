@@ -56,9 +56,7 @@ metadata:
 spec:
   memberOf: [rhdh-team]
 
-
 ---
-
 apiVersion: backstage.io/v1alpha1
 kind: User
 metadata:
@@ -69,7 +67,6 @@ spec:
   memberOf: [group:default/mta-architects]
 
 ---
-
 apiVersion: backstage.io/v1alpha1
 kind: User
 metadata:

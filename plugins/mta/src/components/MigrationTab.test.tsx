@@ -321,36 +321,43 @@ describe('MigrationTab', () => {
     ).toBeInTheDocument();
   });
 
-  it.each(['architect', 'developer', 'unknown'] as const)(
-    'offers an availability refresh without inventing empty findings for %s',
+  async function renderAnalysisUnavailable(
+    persona: 'architect' | 'developer' | 'unknown',
+  ) {
+    const state = migration({
+      phase: 'Analysis Unavailable',
+      activeTask: { id: 93, addon: 'analyzer', state: 'Succeeded' },
+    });
+    mockUseMigration.mockReturnValue(state);
+    mockUsePersonaRole.mockReturnValue({ role: persona, loading: false });
+    render(<MigrationTab />);
+    expect(screen.queryByText('No findings reported')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh analysis availability' }),
+    );
+    await waitFor(() => expect(state.refresh).toHaveBeenCalledTimes(1));
+    return state;
+  }
+
+  it('offers an availability refresh and profile selection to architects without inventing empty findings', async () => {
+    const state = await renderAnalysisUnavailable('architect');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select analysis profile' }),
+    );
+    expect(
+      screen.getByRole('radio', { name: /Spring modernization/ }),
+    ).toBeInTheDocument();
+    expect(state.startAnalysis).not.toHaveBeenCalled();
+  });
+
+  it.each(['developer', 'unknown'] as const)(
+    'offers an availability refresh without profile selection or invented empty findings for %s',
     async persona => {
-      const state = migration({
-        phase: 'Analysis Unavailable',
-        activeTask: { id: 93, addon: 'analyzer', state: 'Succeeded' },
-      });
-      mockUseMigration.mockReturnValue(state);
-      mockUsePersonaRole.mockReturnValue({ role: persona, loading: false });
-      render(<MigrationTab />);
+      const state = await renderAnalysisUnavailable(persona);
       expect(
-        screen.queryByText('No findings reported'),
+        screen.queryByRole('button', { name: 'Select analysis profile' }),
       ).not.toBeInTheDocument();
-      expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Refresh analysis availability' }),
-      );
-      await waitFor(() => expect(state.refresh).toHaveBeenCalledTimes(1));
-      if (persona === 'architect') {
-        fireEvent.click(
-          screen.getByRole('button', { name: 'Select analysis profile' }),
-        );
-        expect(
-          screen.getByRole('radio', { name: /Spring modernization/ }),
-        ).toBeInTheDocument();
-      } else {
-        expect(
-          screen.queryByRole('button', { name: 'Select analysis profile' }),
-        ).not.toBeInTheDocument();
-      }
       expect(state.startAnalysis).not.toHaveBeenCalled();
     },
   );
