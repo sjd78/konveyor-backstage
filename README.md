@@ -100,10 +100,12 @@ Unconnected entities explain how to register/connect in Hub and persist the appl
 ### 4. Verification
 
 ```sh
-yarn tsc
+yarn check        # tsc, ESLint (packages + dev-host scripts), Prettier, cspell
 CI=true yarn backstage-cli repo test plugins/ --watch=false --runInBand
 yarn build:backend
 ```
+
+`yarn install` installs a Husky pre-commit hook that runs lint-staged: ESLint `--fix`, Prettier, and cspell on staged files. Fix formatting repo-wide with `yarn prettier:write`; add legitimate project terms to `cspell.json`.
 
 The backend build also builds the bundled frontend. See [Phase 2 user stories](docs/phase-2-user-stories.md) for exercised interactions and future user-versus-system authentication requirements.
 

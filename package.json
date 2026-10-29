@@ -28,7 +28,8 @@
     "prettier:write": "prettier --write .",
     "spell:check": "cspell --no-progress --show-suggestions \"**\"",
     "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check",
-    "new": "backstage-cli new"
+    "new": "backstage-cli new",
+    "postinstall": "husky"
   },
   "backstage": {
     "cli": {
@@ -54,8 +55,10 @@
     "cspell": "^10.4.0",
     "eslint": "^8.6.0",
     "eslint-config-prettier": "^9.0.0",
+    "husky": "^9.1.7",
     "jest": "~30.2.0",
     "jsdom": "^27.1.0",
+    "lint-staged": "^17.6.0",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
     "typescript": "~5.8.0",
@@ -69,10 +72,12 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "cspell --no-must-find-files --no-progress"
     ],
-    "*.{json,md}": [
-      "prettier --write"
+    "*.{json,md,yaml,yml}": [
+      "prettier --write",
+      "cspell --no-must-find-files --no-progress"
     ]
   },
   "packageManager": "yarn@4.13.0"

@@ -116,8 +116,8 @@ This repository was created to run the **mainline version of Backstage** with th
 Always run these checks when modifying code in this repository:
 
 ```sh
-# 1. Typecheck the entire monorepo
-yarn tsc
+# 1. Typecheck, lint, format, and spell check the entire monorepo
+yarn check
 
 # 2. Run unit and integration tests for all plugins
 yarn backstage-cli repo test plugins/
@@ -128,6 +128,8 @@ yarn build:backend
 # 4. Start the dev host (frontend on :3000, backend on :7007); pick a data scenario
 yarn start            # or: yarn start --scenario offline   (no Hub needed)
 ```
+
+A Husky pre-commit hook runs lint-staged (ESLint `--fix`, Prettier, cspell) on staged files. Never bypass it with `--no-verify`; fix the reported problem, or add a genuine project term to `cspell.json`.
 
 ---
 
