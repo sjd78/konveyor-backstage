@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Typecheck
+        run: yarn tsc
+
+      - name: Lint packages
+        run: yarn lint:all
+
+      - name: Lint dev-host scripts
+        run: yarn lint:scripts
+
+      - name: Check formatting
+        run: yarn prettier:check
+
+      - name: Check spelling
+        run: yarn spell:check
+
+      - name: Check knip reports
+        run: yarn knip:check
+
+      - name: Test
+        run: yarn backstage-cli repo test --coverage
+
+      - name: Build backend and bundled frontend
+        run: yarn build:backend

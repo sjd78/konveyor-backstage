@@ -26,7 +26,7 @@
     "lint:scripts": "eslint --ext .mjs,.cjs,.js dev-host/start",
     "prettier:check": "prettier --check .",
     "prettier:write": "prettier --write .",
-    "spell:check": "cspell --no-progress --show-suggestions \"**\"",
+    "spell:check": "cspell --no-progress --show-suggestions \"**\" \".github/**\"",
     "build:knip-reports": "backstage-repo-tools knip-reports",
     "knip:check": "backstage-repo-tools knip-reports --ci",
     "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check && yarn knip:check",
