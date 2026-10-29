@@ -27,7 +27,9 @@
     "prettier:check": "prettier --check .",
     "prettier:write": "prettier --write .",
     "spell:check": "cspell --no-progress --show-suggestions \"**\"",
-    "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check",
+    "build:knip-reports": "backstage-repo-tools knip-reports",
+    "knip:check": "backstage-repo-tools knip-reports --ci",
+    "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check && yarn knip:check",
     "new": "backstage-cli new",
     "postinstall": "husky"
   },
@@ -49,6 +51,7 @@
     "@backstage/cli": "^0.36.6",
     "@backstage/cli-defaults": "^0.1.6",
     "@backstage/e2e-test-utils": "^0.1.2",
+    "@backstage/repo-tools": "^0.19.2",
     "@jest/environment-jsdom-abstract": "~30.2.0",
     "@playwright/test": "^1.32.3",
     "@types/jest": "^30.0.0",
