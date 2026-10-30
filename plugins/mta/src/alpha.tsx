@@ -15,9 +15,12 @@
  */
 import type { ExtensionDefinition } from '@backstage/frontend-plugin-api';
 import {
+  ApiBlueprint,
   createFrontendPlugin,
   PageBlueprint,
 } from '@backstage/frontend-plugin-api';
+import { discoveryApiRef } from '@backstage/core-plugin-api';
+import { mtaApiRef, MtaApiClient } from './api';
 import { Entity } from '@backstage/catalog-model';
 import { EntityContentBlueprint } from '@backstage/plugin-catalog-react/alpha';
 import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
@@ -25,6 +28,16 @@ import { MigrationTabPage } from './components/MigrationTabPage';
 import { MtaHomeSection } from './components/MtaHomeCards';
 import { rootRouteRef } from './routes';
 import { MigrationIcon } from './icons/MigrationIcon';
+
+const mtaApiExtension = ApiBlueprint.make({
+  name: 'mta-api',
+  params: defineParams =>
+    defineParams({
+      api: mtaApiRef,
+      deps: { discoveryApi: discoveryApiRef },
+      factory: ({ discoveryApi }) => new MtaApiClient(discoveryApi),
+    }),
+});
 
 const mtaEntityContent = EntityContentBlueprint.makeWithOverrides({
   name: 'migration',
@@ -64,6 +77,7 @@ const mtaPage = PageBlueprint.make({
 export const mtaPlugin = createFrontendPlugin({
   pluginId: 'mta',
   extensions: [
+    mtaApiExtension,
     mtaEntityContent,
     mtaHomeWidget,
     mtaPage,

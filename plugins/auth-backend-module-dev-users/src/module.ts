@@ -83,14 +83,17 @@ export const authModuleDevUsers = createBackendModule({
   },
 });
 
-function signInAsCatalogUser(): SignInResolver<{ userEntityRef: string; }> | undefined {
+function signInAsCatalogUser():
+  | SignInResolver<{ userEntityRef: string }>
+  | undefined {
   return async (info, ctx) => {
-    const userRef = info.result &&
+    const userRef =
+      info.result &&
       typeof info.result === 'object' &&
       'userEntityRef' in info.result &&
       typeof info.result.userEntityRef === 'string'
-      ? info.result.userEntityRef
-      : 'user:default/guest';
+        ? info.result.userEntityRef
+        : 'user:default/guest';
     try {
       return await ctx.signInWithCatalogUser({
         entityRef: userRef,
@@ -103,21 +106,25 @@ function signInAsCatalogUser(): SignInResolver<{ userEntityRef: string; }> | und
   };
 }
 
-function usersAuthenticator(auth: AuthService, catalogClient: CatalogClient, logger: LoggerService): ProxyAuthenticator<unknown, { userEntityRef: string; }, unknown> {
+function usersAuthenticator(
+  auth: AuthService,
+  catalogClient: CatalogClient,
+  logger: LoggerService,
+): ProxyAuthenticator<unknown, { userEntityRef: string }, unknown> {
   return createProxyAuthenticator({
     defaultProfileTransform: async () => ({ profile: {} }),
-    initialize() { },
+    initialize() {},
     async authenticate({ req }) {
       const requested = req.header('x-user-entity-ref');
 
       const refs = await getCatalogUserRefs({ auth, catalogClient, logger });
-      const userEntityRef = requested && refs.includes(requested)
-        ? requested
-        : 'user:default/guest';
+      const userEntityRef =
+        requested && refs.includes(requested)
+          ? requested
+          : 'user:default/guest';
 
       logger.debug(`Authenticating user ${userEntityRef}`);
       return { result: { userEntityRef } };
     },
   });
 }
-

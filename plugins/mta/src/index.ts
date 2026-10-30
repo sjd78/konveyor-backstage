@@ -13,26 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+export { mtaPlugin, mtaPlugin as default } from './alpha';
+export { mtaApiRef, MtaApiClient } from './api';
+export type { MtaApi } from './api';
+export { useKonveyorMigration } from './hooks/useKonveyorMigration';
+export type {
+  UseKonveyorMigrationResult,
+  UseKonveyorMigrationOptions,
+} from './hooks/useKonveyorMigration';
 export {
-  mtaPlugin,
-  mtaPlugin as default,
-} from './alpha';
-export { MtaStoreProvider, useMtaStore } from './store/MtaStore';
+  useKonveyorApplications,
+  useKonveyorApplication,
+  useKonveyorArchetypes,
+  useKonveyorIssues,
+} from './hooks/useKonveyorData';
+export { useMtaAnalysis } from './hooks/useMtaAnalysis';
+export type { UseMtaAnalysisResult } from './hooks/useMtaAnalysis';
+export { useKonveyorActions } from './hooks/useKonveyorActions';
+export type { UseKonveyorActionsResult } from './hooks/useKonveyorActions';
+export { useMtaHomeData } from './hooks/useMtaHomeData';
+export type { MtaAppInfo } from './hooks/useMtaHomeData';
 export type {
-  AggregateStats,
-  CatalogEntity,
-} from './store/MtaStore';
-export type {
-  MtaApplication,
-  Archetype,
-  TargetProfile,
   MigrationIssue,
-  ActionHistoryEntry,
   MigrationStatus,
   IssueSeverity,
   IssueCategory,
-  ActionType,
-  ActionStatus,
 } from './types';
 export { MigrationTab } from './components/MigrationTab';
 export { MigrationStatusChip } from './components/MigrationStatusChip';

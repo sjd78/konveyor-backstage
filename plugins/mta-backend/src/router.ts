@@ -1,29 +1,155 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
-import express, { Router } from 'express';
+import express, { NextFunction, Request, Response, Router } from 'express';
 import RouterBuilder from 'express-promise-router';
 import yaml from 'js-yaml';
+import { KonveyorClient } from './service/KonveyorClient';
 
 export interface RouterOptions {
   logger?: LoggerService;
+  konveyorClient?: KonveyorClient;
+  mtaBaseUrl?: string;
 }
 
-function stringOrDefault(value: unknown, defaultValue: string): string {
-  return typeof value === 'string' ? value : defaultValue;
-}
+export async function createRouter(options: RouterOptions): Promise<Router> {
+  const { logger, konveyorClient, mtaBaseUrl } = options;
+  const client =
+    konveyorClient ??
+    new KonveyorClient({
+      baseUrl: mtaBaseUrl ?? 'http://localhost:8080',
+      logger,
+    });
 
-export async function createRouter(_options: RouterOptions): Promise<Router> {
   const router = RouterBuilder();
   router.use(express.json());
 
-  router.get('/entity/:name', (req, res) => {
+  router.param(
+    'id',
+    (_req: Request, res: Response, next: NextFunction, value: string) => {
+      if (!Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
+        res.status(400).json({
+          error: { message: 'Invalid resource ID', status: 400 },
+        });
+        return;
+      }
+      next();
+    },
+  );
+
+  router.get('/applications', async (_req: Request, res: Response) => {
+    const apps = await client.getApplications();
+    res.json(apps);
+  });
+
+  router.get('/applications/:id', async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const app = await client.getApplication(id);
+    res.json(app);
+  });
+
+  router.post('/applications', async (req: Request, res: Response) => {
+    const app = await client.createApplication(req.body);
+    res.status(201).json(app);
+  });
+
+  router.get('/archetypes', async (_req: Request, res: Response) => {
+    const archetypes = await client.getArchetypes();
+    res.json(archetypes);
+  });
+
+  router.get('/applications/:id/tasks', async (req: Request, res: Response) => {
+    res.json(await client.getApplicationTasks(Number(req.params.id)));
+  });
+
+  router.get(
+    '/applications/:id/analysis',
+    async (req: Request, res: Response) => {
+      res.json(await client.getAnalysis(Number(req.params.id)));
+    },
+  );
+
+  router.get(
+    '/applications/:id/analysis/profiles',
+    async (req: Request, res: Response) => {
+      res.json(await client.getAnalysisProfiles(Number(req.params.id)));
+    },
+  );
+
+  router.get('/targets', async (_req: Request, res: Response) => {
+    res.json(await client.getTargets());
+  });
+
+  router.post(
+    '/applications/:id/discover',
+    async (req: Request, res: Response) => {
+      res
+        .status(201)
+        .json(await client.createDiscoveryTask(Number(req.params.id)));
+    },
+  );
+
+  router.post(
+    '/applications/:id/analyze',
+    async (req: Request, res: Response) => {
+      const id = Number(req.params.id);
+      if (
+        !Number.isSafeInteger(req.body?.profileId) ||
+        req.body.profileId <= 0
+      ) {
+        res.status(400).json({
+          error: { message: 'Invalid analysis profile ID', status: 400 },
+        });
+        return;
+      }
+      const task = await client.createAnalysisTask(id, req.body.profileId);
+      res.status(201).json(task);
+    },
+  );
+
+  router.get('/tasks/:id', async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const task = await client.getTask(id);
+    res.json(task);
+  });
+
+  router.get(
+    '/applications/:id/issues',
+    async (req: Request, res: Response) => {
+      const id = Number(req.params.id);
+      const issues = await client.getInsights(id);
+      res.json(issues);
+    },
+  );
+
+  router.get('/insights/:id/incidents', async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    const incidents = await client.getIncidents(id);
+    res.json(incidents);
+  });
+
+  router.get('/entity/:name', (req: Request, res: Response) => {
     const { name } = req.params;
-    const description = stringOrDefault(req.query.description, 'Application managed by MTA');
-    const type = stringOrDefault(req.query.type, 'service');
-    const lifecycle = stringOrDefault(req.query.lifecycle, 'production');
-    const owner = stringOrDefault(req.query.owner, 'user:default/guest');
-    const system = stringOrDefault(req.query.system, 'mta-portfolio');
-    const repoUrl = stringOrDefault(req.query.repoUrl, '');
-    const tags = stringOrDefault(req.query.tags, '').split(',').filter(Boolean);
+    const description =
+      typeof req.query.description === 'string'
+        ? req.query.description
+        : 'Application managed by MTA';
+    const type =
+      typeof req.query.type === 'string' ? req.query.type : 'service';
+    const lifecycle =
+      typeof req.query.lifecycle === 'string'
+        ? req.query.lifecycle
+        : 'production';
+    const owner =
+      typeof req.query.owner === 'string'
+        ? req.query.owner
+        : 'user:default/guest';
+    const system =
+      typeof req.query.system === 'string' ? req.query.system : 'mta-portfolio';
+    const repoUrl =
+      typeof req.query.repoUrl === 'string' ? req.query.repoUrl : '';
+    const tags =
+      typeof req.query.tags === 'string'
+        ? req.query.tags.split(',').filter(Boolean)
+        : [];
 
     const annotations: Record<string, string> = {};
     if (repoUrl) {
@@ -54,6 +180,34 @@ export async function createRouter(_options: RouterOptions): Promise<Router> {
     res.setHeader('Content-Type', 'text/yaml');
     res.send(yaml.dump(doc, { lineWidth: -1 }));
   });
+
+  router.use(
+    (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      if (res.headersSent) {
+        return next(err);
+      }
+      const errObj =
+        typeof err === 'object' && err !== null
+          ? (err as Record<string, unknown>)
+          : undefined;
+      const status =
+        typeof errObj?.status === 'number' &&
+        errObj.status >= 400 &&
+        errObj.status < 600
+          ? errObj.status
+          : 500;
+      const message =
+        typeof errObj?.message === 'string'
+          ? errObj.message
+          : 'Internal server error';
+      return res.status(status).json({
+        error: {
+          message,
+          status,
+        },
+      });
+    },
+  );
 
   return router;
 }

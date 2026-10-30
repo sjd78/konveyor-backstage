@@ -43,6 +43,9 @@ site
 # Local configuration files
 *.local.yaml
 
+# Development host scenario output (yarn start)
+dev-host/.generated/
+
 # Sensitive credentials
 *-credentials.yaml
 

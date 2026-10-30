@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { Header, Content, Page, WarningPanel, ContentHeader } from '@backstage/core-components';
-import { configApiRef, discoveryApiRef, useApi } from '@backstage/core-plugin-api';
+import {
+  Header,
+  Content,
+  Page,
+  WarningPanel,
+  ContentHeader,
+} from '@backstage/core-components';
+import {
+  configApiRef,
+  discoveryApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import type { SignInPageProps } from '@backstage/plugin-app-react';
-import { Card, CardHeader, CardBody, Flex, Text, Badge } from "@backstage/ui";
+import { Card, CardHeader, CardBody, Flex, Text, Badge } from '@backstage/ui';
 
 import { signInDevUser } from '../utils/user-identity';
 import { useFetchDevUsers, DevUser } from '../hooks/useFetchDevUsers';
@@ -11,24 +21,36 @@ const DEFAULT_USERS: DevUser[] = [
   { userEntityRef: 'user:default/guest', displayName: 'Guest' },
 ];
 
-const DevUserCard = ({ user, signingIn, onSelect }: { user: DevUser, signingIn: boolean, onSelect: () => void }) => {
+const DevUserCard = ({
+  user,
+  signingIn,
+  onSelect,
+}: {
+  user: DevUser;
+  signingIn: boolean;
+  onSelect: () => void;
+}) => {
   return (
-    <Card style={{ width: "350px" }} onPress={signingIn ? ()=>{} : onSelect} label={`Login as user ${user.displayName}`}>
-        <CardHeader>
-          <Text variant="title-small">{user.displayName}</Text>
-        </CardHeader>
-        <CardBody>
-          <Text variant="body-medium">{user.userEntityRef}</Text>
-          {user.memberOf && user.memberOf.length > 0 && (
-            <Flex gap="xs" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
-              {user.memberOf.map(group => (
-                <Badge key={group.groupEntityRef} size="small">
-                  {group.displayName}
-                </Badge>
-              ))}
-            </Flex>
-          )}
-        </CardBody>
+    <Card
+      style={{ width: '350px' }}
+      onPress={signingIn ? () => {} : onSelect}
+      label={`Login as user ${user.displayName}`}
+    >
+      <CardHeader>
+        <Text variant="title-small">{user.displayName}</Text>
+      </CardHeader>
+      <CardBody>
+        <Text variant="body-medium">{user.userEntityRef}</Text>
+        {user.memberOf && user.memberOf.length > 0 && (
+          <Flex gap="xs" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
+            {user.memberOf.map(group => (
+              <Badge key={group.groupEntityRef} size="small">
+                {group.displayName}
+              </Badge>
+            ))}
+          </Flex>
+        )}
+      </CardBody>
     </Card>
   );
 };
@@ -58,9 +80,7 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
     <Page themeId="tool">
       <Header title={configApi.getString('app.title')} />
 
-      {showError && (
-        <WarningPanel title={`Error: ${showError}`} />
-      )}
+      {showError && <WarningPanel title={`Error: ${showError}`} />}
 
       <Content>
         <ContentHeader title="Select a Dev User" />
@@ -72,10 +92,18 @@ export function DevUserSignInPage({ onSignInSuccess }: SignInPageProps) {
             </Flex>
           </Flex>
         ) : (
-          <Flex justify="center" style={{ flexWrap: 'wrap', maxWidth: '1150px', margin: '0 auto' }}>
-          {users.map(user => (
-            <DevUserCard key={user.userEntityRef} user={user} signingIn={signingIn} onSelect={() => handleSelect(user)} />
-          ))}
+          <Flex
+            justify="center"
+            style={{ flexWrap: 'wrap', maxWidth: '1150px', margin: '0 auto' }}
+          >
+            {users.map(user => (
+              <DevUserCard
+                key={user.userEntityRef}
+                user={user}
+                signingIn={signingIn}
+                onSelect={() => handleSelect(user)}
+              />
+            ))}
           </Flex>
         )}
       </Content>

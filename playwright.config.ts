@@ -38,7 +38,7 @@ export default defineConfig({
           timeout: 120_000,
         },
         {
-          command: 'yarn start backend',
+          command: 'yarn start --scenario offline backend',
           port: 7007,
           reuseExistingServer: true,
           timeout: 60_000,

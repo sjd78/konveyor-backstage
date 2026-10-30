@@ -22,12 +22,11 @@ import type { MigrationStatus } from '../types';
 
 export function MigrationStatusChip({ status }: { status: MigrationStatus }) {
   switch (status) {
-    case 'Completed':
-      return <StatusOK>{status}</StatusOK>;
     case 'Failed':
       return <StatusError>{status}</StatusError>;
+    case 'Analysis Unavailable':
+      return <StatusError>{status}</StatusError>;
     case 'Active':
-    case 'Post-remediation':
       return <StatusOK>{status}</StatusOK>;
     case 'Discovery':
     case 'Path Selection':

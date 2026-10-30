@@ -2,3 +2,6 @@ dist
 dist-types
 coverage
 .vscode
+dev-host/.generated
+e2e-test-report
+knip-report.md

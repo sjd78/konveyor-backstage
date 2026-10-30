@@ -1,0 +1,81 @@
+/*
+ * Development host backend. Not a deployable backend: it registers the MTA
+ * plugins alongside standard Backstage plugins so they behave as they would in
+ * a real installation. See dev-host/README.md.
+ */
+
+import { createBackend } from '@backstage/backend-defaults';
+
+const backend = createBackend();
+
+backend.add(import('@backstage/plugin-app-backend'));
+backend.add(import('@backstage/plugin-proxy-backend'));
+
+// scaffolder plugin
+backend.add(import('@backstage/plugin-scaffolder-backend'));
+backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
+backend.add(
+  import('@backstage/plugin-scaffolder-backend-module-notifications'),
+);
+
+// techdocs plugin
+backend.add(import('@backstage/plugin-techdocs-backend'));
+
+// auth plugin
+backend.add(import('@backstage/plugin-auth-backend'));
+// See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
+// guest provider: backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
+// guest provider: See https://backstage.io/docs/auth/guest/provider
+
+// Replace the guest provider with a custom provider that lets the frontend choose the user.
+backend.add(import('@internal/backstage-plugin-auth-backend-module-dev-users'));
+
+// catalog plugin
+backend.add(import('@backstage/plugin-catalog-backend'));
+backend.add(
+  import('@backstage/plugin-catalog-backend-module-scaffolder-entity-model'),
+);
+
+// See https://backstage.io/docs/features/software-catalog/configuration#subscribing-to-catalog-errors
+backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
+
+// permission plugin
+backend.add(import('@backstage/plugin-permission-backend'));
+// See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
+backend.add(
+  import('@backstage/plugin-permission-backend-module-allow-all-policy'),
+);
+
+// search plugin
+backend.add(import('@backstage/plugin-search-backend'));
+
+// search engine: no engine module, so search uses the built-in in-memory (Lunr) engine
+
+// search collators
+backend.add(import('@backstage/plugin-search-backend-module-catalog'));
+backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
+
+// kubernetes plugin
+backend.add(import('@backstage/plugin-kubernetes-backend'));
+
+// user settings plugin
+backend.add(import('@backstage/plugin-user-settings-backend'));
+
+// notifications and signals plugins
+backend.add(import('@backstage/plugin-notifications-backend'));
+backend.add(import('@backstage/plugin-signals-backend'));
+
+// mcp actions plugin
+backend.add(import('@backstage/plugin-mcp-actions-backend'));
+
+backend.add(import('@internal/backstage-plugin-mta-backend'));
+backend.add(
+  import(
+    '@internal/backstage-plugin-catalog-backend-module-mta-entity-provider'
+  ),
+);
+backend.add(
+  import('@internal/backstage-plugin-scaffolder-backend-module-mta-actions'),
+);
+backend.add(import('@internal/backstage-plugin-mta-mock-hub-backend'));
+backend.start();
