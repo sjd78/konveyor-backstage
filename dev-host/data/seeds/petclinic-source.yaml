@@ -1,0 +1,35 @@
+# Development inventory: a YAML list containing one Hub application body.
+# The `live-seeded` start scenario POSTs it to /hub/applications when no Hub
+# application with that name exists; `live-unconnected` and `offline` build
+# unconnected Backstage Components from it. No analysis is started.
+# No IDs, credentials, tags, analysis profiles, tasks, findings, or states are seeded.
+# Checked: 2026-10-28 via GitHub repository metadata, branch, and contents APIs.
+# Repository: https://github.com/konveyor/spring-framework-petclinic
+# Actual default branch: main
+# Deliberately selected branch: legacy, linked by the example-applications
+# petclinic README; do not replace it with main for this legacy-source sample.
+# Observed legacy commit: 0cc24749ca9eb1e12bc43cc775f11c209daf645d
+# Use the named legacy branch rather than that commit SHA: addon git pull
+# requires a branch, not detached HEAD. The SHA records provenance only.
+# Metadata: https://api.github.com/repos/konveyor/spring-framework-petclinic
+# Ref: https://api.github.com/repos/konveyor/spring-framework-petclinic/branches/legacy
+# Root: https://github.com/konveyor/spring-framework-petclinic/tree/0cc24749ca9eb1e12bc43cc775f11c209daf645d
+# README: https://github.com/konveyor/spring-framework-petclinic/blob/0cc24749ca9eb1e12bc43cc775f11c209daf645d/readme.md
+# POM: https://github.com/konveyor/spring-framework-petclinic/blob/0cc24749ca9eb1e12bc43cc775f11c209daf645d/pom.xml
+# Verified root pom.xml plus src/main/java, src/main/resources, and
+# src/main/webapp. Empty repository.path selects this full repository root,
+# retaining Maven configuration and resources alongside the Java sources.
+# This is the plain Spring Framework MVC/JPA/JDBC WAR, NOT the canonical
+# Spring Boot Petclinic. POM specifies Java 8, Spring Framework 5.3.12,
+# Spring Session, and Hazelcast. Select an appropriate installed analyzer/profile
+# separately; registration does not install the walkthrough's custom rules/target.
+# No build, deployment, analysis compatibility, or findings have been exercised.
+# The separate example-applications.yaml retains the original docs-only
+# petclinic folder inventory without silently replacing its repository/path.
+- name: petclinic-legacy-source
+  description: Petclinic legacy Spring Framework WAR source with Spring Session and Hazelcast, from the external repository linked by the Konveyor walkthrough.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/spring-framework-petclinic.git
+    branch: legacy
+    path: ''

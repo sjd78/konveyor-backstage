@@ -3,17 +3,17 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": "22 || 24"
   },
   "scripts": {
-    "start": "backstage-cli repo start",
-    "start:frontend": "backstage-cli repo start app",
-    "start:backend": "backstage-cli repo start backend",
+    "start": "node dev-host/start/index.mjs",
+    "start:frontend": "node dev-host/start/index.mjs app",
+    "start:backend": "node dev-host/start/index.mjs backend",
     "start:tmux": "tmux new-session -s backstage -n backend -d 'yarn start:backend' && tmux new-window -t backstage -n frontend 'yarn start:frontend' && tmux attach -t backstage",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",
-    "build-image": "yarn workspace backend build-image",
     "tsc": "tsc",
     "tsc:full": "tsc --skipLibCheck false --incremental false",
     "clean": "backstage-cli repo clean",
@@ -23,8 +23,15 @@
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
+    "lint:scripts": "eslint --ext .mjs,.cjs,.js dev-host/start",
     "prettier:check": "prettier --check .",
-    "new": "backstage-cli new"
+    "prettier:write": "prettier --write .",
+    "spell:check": "cspell --no-progress --show-suggestions \"**\" \".github/**\"",
+    "build:knip-reports": "backstage-repo-tools knip-reports",
+    "knip:check": "backstage-repo-tools knip-reports --ci",
+    "check": "yarn tsc && yarn lint:all && yarn lint:scripts && yarn prettier:check && yarn spell:check && yarn knip:check",
+    "new": "backstage-cli new",
+    "postinstall": "husky"
   },
   "backstage": {
     "cli": {
@@ -36,21 +43,29 @@
     }
   },
   "workspaces": [
-    "packages/*",
+    "dev-host/app",
+    "dev-host/backend",
     "plugins/*"
   ],
   "devDependencies": {
     "@backstage/cli": "^0.36.6",
     "@backstage/cli-defaults": "^0.1.6",
     "@backstage/e2e-test-utils": "^0.1.2",
+    "@backstage/repo-tools": "^0.19.2",
     "@jest/environment-jsdom-abstract": "~30.2.0",
     "@playwright/test": "^1.32.3",
     "@types/jest": "^30.0.0",
+    "cspell": "^10.4.0",
+    "eslint": "^8.6.0",
+    "eslint-config-prettier": "^9.0.0",
+    "husky": "^9.1.7",
     "jest": "~30.2.0",
     "jsdom": "^27.1.0",
+    "lint-staged": "^17.6.0",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
-    "typescript": "~5.8.0"
+    "typescript": "~5.8.0",
+    "yaml": "^2.2.2"
   },
   "resolutions": {
     "@types/react": "^18",
@@ -60,10 +75,12 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "cspell --no-must-find-files --no-progress"
     ],
-    "*.{json,md}": [
-      "prettier --write"
+    "*.{json,md,yaml,yml}": [
+      "prettier --write",
+      "cspell --no-must-find-files --no-progress"
     ]
   },
   "packageManager": "yarn@4.13.0"

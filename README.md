@@ -4,92 +4,114 @@ Mainline Backstage instance integrating Konveyor / MTA migration plugins, module
 
 ## Summary
 
-This repository hosts static Backstage plugins that connect application migration and modernization workflows to Backstage:
-- Application technology discovery and archetype classification.
-- Interactive **Migration** tab per component with phase tracking and issue inspection.
-- Persona-based migration views for Architects and Developers.
-- Self-service application registration template via Backstage Scaffolder.
-- In-memory MTA Hub simulator with periodic catalog synchronization.
+This monorepo wraps reusable Backstage MTA plugins in a local development host:
+
+- Live application, archetype/profile, task, and analysis reads through the Konveyor UI's `/hub` proxy.
+- Real technology discovery and profile-based analysis submission, polling, and reload recovery.
+- Migration findings with incident locations, snippets, messages, and documentation links.
+- Catalog-backed architect/developer views; persona selection is not authorization.
+- A development host whose `yarn start` selector chooses the catalog/Hub data for each run.
+
+Phase 2 is unauthenticated and requires an isolated Hub configured for anonymous access. OIDC is not implemented. Production scaffolder registration and continuous catalog ingestion remain separate Phase 4 work; their existing mock-Hub consumers are retained, not used to connect the live development catalog.
 
 ## Repository Layout
 
+This repository is a **development host only**: there is no production Backstage install, deployment config, or container image. The deliverables are the packages in `plugins/`; `dev-host/` wraps them in a realistic local Backstage.
+
+```text
+plugins/mta/                   Reusable live migration frontend
+plugins/mta-backend/           Hub transport, proxy routes, legacy entity YAML endpoint
+plugins/mta-mock-hub-backend/   Retained legacy registration demo simulator
+plugins/catalog-backend-module-mta-entity-provider/   Mock catalog consumer (Phase 4 cutover)
+plugins/scaffolder-backend-module-mta-actions/        Mock scaffolder consumer (Phase 4 cutover)
+plugins/auth-*-dev-users*/     Development persona sign-in (frontend + backend module)
+dev-host/app/, dev-host/backend/   Host frontend/backend packages
+dev-host/app-config.yaml       The single host config
+dev-host/data/                 Static catalog files, Hub seed bodies, developer assignments
+dev-host/start/                `yarn start` scenario selector and catalog generation
+docs/                          Phase 2 user stories, RHDH comparison, demo recordings
 ```
-static-backstage/
-├── app-config.yaml                                        # Backstage configuration (ports, catalog locations)
-├── packages/
-│   ├── app/                                               # Frontend application (New Frontend System)
-│   │   └── src/App.tsx                                    # Feature registry (mtaPlugin, catalogPlugin)
-│   └── backend/                                           # Backend service (New Backend System)
-│       └── src/index.ts                                   # Backend plugin and module registrations
-├── plugins/
-│   ├── mta/                                               # Frontend plugin (@internal/backstage-plugin-mta)
-│   │   ├── src/alpha.tsx                                  # New frontend system plugin & extension definitions
-│   │   ├── src/components/                                # MigrationTab, MtaHomeCards, Dialogs
-│   │   ├── src/components/phases/                         # 7 migration lifecycle phase views
-│   │   ├── src/prototype/                                 # PrototypeScopeSwitcher (toolbar & persona state)
-│   │   └── src/store/                                     # MtaStore and mock migration data
-│   ├── mta-backend/                                       # Backend plugin (@internal/backstage-plugin-mta-backend)
-│   │   └── src/router.ts                                  # Dynamic Component YAML generator (/entity/:name)
-│   ├── mta-mock-hub-backend/                              # Backend plugin (@internal/backstage-plugin-mta-mock-hub-backend)
-│   │   └── src/router.ts                                  # MTA Hub API simulator (/register, /applications)
-│   ├── catalog-backend-module-mta-entity-provider/        # Catalog module (@internal/backstage-plugin-catalog-backend-module-mta-entity-provider)
-│   │   └── src/module.ts                                  # MtaEntityProvider polling hub and mutating catalog
-│   └── scaffolder-backend-module-mta-actions/             # Scaffolder module (@internal/backstage-plugin-scaffolder-backend-module-mta-actions)
-│       └── src/module.ts                                  # Custom action: mta:register-application
-└── examples/
-    ├── mta-components.yaml                                # Seeded MTA components (inventory-service, etc.)
-    └── mta-template/template.yaml                         # Software Template: mta-register-application
-```
+
+See [`dev-host/README.md`](dev-host/README.md) for host details, scenarios, and adding plugins.
 
 ## Plugin Details
 
-| Plugin / Module | Type | System Role | Primary APIs & Extension Points |
-|---|---|---|---|
-| `plugins/mta` | Frontend Plugin | Migration UI | `EntityContentBlueprint` (`/migration`), `HomePageWidgetBlueprint` (`mta-migration-cards`), `PageBlueprint` (`/mta`), `PrototypeScopeSwitcher` |
-| `plugins/mta-backend` | Backend Plugin | YAML Server | `GET /api/mta-backend/entity/:name` (generates Component YAML with MTA annotations) |
-| `plugins/mta-mock-hub-backend` | Backend Plugin | Hub Simulator | `POST /api/mta-mock-hub/register`<br>`GET /api/mta-mock-hub/applications`<br>`GET /api/mta-mock-hub/applications/:id`<br>`GET /api/mta-mock-hub/support-contact` |
-| `plugins/catalog-backend-module-mta-entity-provider` | Backend Module | Catalog Ingestion | Extends `catalogProcessingExtensionPoint`; polls `mta-mock-hub` every 10s and applies `full` catalog mutations |
-| `plugins/scaffolder-backend-module-mta-actions` | Backend Module | Scaffolder Action | Extends `scaffolderActionsExtensionPoint`; registers `mta:register-application` action |
+| Plugin / module                | Role                                            | Interfaces                                                                                                                                                  |
+| ------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugins/mta`                  | Live migration tab, home cards, and `/mta` page | `EntityContentBlueprint`, `HomePageWidgetBlueprint`, `PageBlueprint`, `MtaApiClient`                                                                        |
+| `plugins/mta-backend`          | Hub REST client/proxy                           | `/api/mta-backend/applications`, per-application tasks/analysis/profiles/discovery/analyze, tasks, incidents, targets, archetypes; `/entity/:name` retained |
+| `plugins/mta-mock-hub-backend` | Legacy demo only                                | Simulated registration/discovery; not the live Hub                                                                                                          |
+| Catalog entity-provider module | Legacy mock ingestion                           | Scheduled mock-Hub reads, not the development startup snapshot                                                                                              |
+| Scaffolder actions module      | Legacy mock registration                        | `mta:register-application`; not live production registration yet                                                                                            |
 
-### Annotations
+### Catalog connections
 
-- `konveyor.io/application-id`: MTA Hub application identifier.
-- `mta.konveyor.io/repo-url`: Git repository URL analyzed by MTA.
-- `mta.konveyor.io/discovered-tags`: Discovered technologies JSON string (e.g. `["JPA entities", "Java EE JSON-P"]`).
-- `mta.konveyor.io/assigned-developer`: Assigned developer user entity reference.
-- `mta.konveyor.io/root-path`: Subdirectory path for monorepo applications.
+- `konveyor.io/application-id`: positive numeric ID of the actual Hub application. No implicit name-based connection.
+- `mta.konveyor.io/repo-url`: repository URL.
+- `mta.konveyor.io/root-path`: repository subdirectory.
+- `mta.konveyor.io/repo-branch`: repository ref.
+- `mta.konveyor.io/assigned-developer`: developer user entity reference.
+
+Live task state and finding counts come from Hub, never seeded status/count annotations. An absent connection, deleted application, denied request, absent analysis, and successful analysis with no findings have distinct outcomes. No findings does not mean migration completion.
 
 ## Quick Start
 
-### 1. Prerequisites
-- **Node.js:** `^22` or `^24`
-- **Yarn:** Yarn Modern (v4) or Classic (1.22.x)
+### 1. Prerequisites and installation
 
-### 2. Install Dependencies
+- Node.js 22 or 24; Yarn 4 (the repository pins Yarn 4.13.0).
+- A running Konveyor UI endpoint whose `/hub` route is reachable from the development host.
+- Existing Hub applications, or the `live-seeded` scenario to create the sample applications from `dev-host/data/seeds/`.
+- For analysis, matching archetypes with effective analysis profiles and a runnable analyzer addon.
+
 ```sh
 yarn install
-```
-
-### 3. Verify Types & Run Tests
-```sh
-yarn tsc
-yarn backstage-cli repo test plugins/
-```
-
-### 4. Start Development Servers
-```sh
+cp .env.example .env   # set MTA_HUB_BASE_URL to your Konveyor UI origin
 yarn start
 ```
-Starts:
-- Frontend on `http://localhost:3000`
-- Backend on `http://localhost:7007`
 
-### 5. Verify In Browser
-1. Open `http://localhost:3000`.
-2. Click **ENTER** on the Guest authentication prompt.
-3. **Migration Tab:** Navigate to **Catalog** -> `inventory-service` -> click the **Migration** tab (`/catalog/default/component/inventory-service/migration`).
-4. **Prototype Scope Bar:** Use the top bar to switch personas (`Application Architect` / `Corporate Developer`) or override migration lifecycle state (`Not Started`, `Discovery`, `Path Selection`, `Analysis`, `Active`, `Completed`, `Failed`).
-5. **Software Templates:** Navigate to **Create** (`/create`) to view and run the **Register application for migration** template.
+Do **not** include `/hub` in `MTA_HUB_BASE_URL`; the client adds it. No port-forward is required. `yarn start` loads `.env` itself; an exported shell variable takes precedence.
+
+### 2. Startup behavior
+
+`yarn start` asks which data scenario to prepare (Enter keeps the last choice), writes the gitignored `dev-host/.generated/catalog.yaml`, then launches the frontend on `http://localhost:3000` and backend on `http://localhost:7007`. Skip the prompt with `yarn start --scenario <id>`.
+
+| Scenario           | Hub access                                      | MTA Components in the catalog                |
+| ------------------ | ----------------------------------------------- | -------------------------------------------- |
+| `live`             | Read-only                                       | One connected Component per Hub application  |
+| `live-seeded`      | Creates missing seed applications (no analysis) | Same as `live`, after provisioning           |
+| `live-unconnected` | Read-only                                       | `live` plus seed Components without a Hub ID |
+| `offline`          | None                                            | Seed Components without a Hub ID only        |
+
+Connected entity names are stable `mta-application-<Hub ID>` values, with the real application name as the title. Edit `dev-host/data/assignments.json` (keyed by application name) to assign applications to catalog users; the supplied validation applications belong to Chen. Other applications belong to the architect portfolio without a developer assignment.
+
+After registering a new application in Hub, restart `yarn start` to reload the snapshot. This is a development snapshot, **not** a scheduled catalog provider or the complete Phase 2a sample-data loader. The catalog database is in memory, so each start contains exactly the selected scenario. `yarn start:frontend`, `yarn start:backend`, and `yarn start:tmux` use the same selector; frontend-only starts skip scenario preparation.
+
+### 3. Browser interactions
+
+1. Open `http://localhost:3000` and select **Sarah (Architect)**.
+2. Home shows actual connected applications and current Hub status. Use **Refresh Hub data** after work changes elsewhere.
+3. Open an application card, then its **Migration** tab. Run discovery for a connected repository, or choose an effective analysis profile and **Start analysis**.
+4. Task IDs, activity, repository ref/path, errors, and terminal outcomes come from Hub. Reloading restores task state rather than resetting a demo workflow.
+5. Inspect findings and expand a row for incident evidence. Unsupported AI remediation, deployment generation, and migration sign-off are not presented as working actions.
+6. Log out and choose **Chen (Developer)** to view assigned applications and findings without architect mutation controls.
+
+Unconnected entities explain how to register/connect in Hub and persist the application-ID annotation. The live Migration tab does not create an application and retain its identity only in browser memory. Dev-user impersonation and the example allow-all permission policy are development-host infrastructure.
+
+### 4. Verification
+
+```sh
+yarn check        # tsc, ESLint (packages + dev-host scripts), Prettier, cspell, knip reports
+CI=true yarn backstage-cli repo test plugins/ --watch=false --runInBand
+yarn build:backend
+```
+
+`yarn install` installs a Husky pre-commit hook that runs lint-staged: ESLint `--fix`, Prettier, and cspell on staged files. Fix formatting repo-wide with `yarn prettier:write`; add legitimate project terms to `cspell.json`.
+
+Each package has a committed `knip-report.md` listing unused or unlisted dependencies and exports. `yarn check` fails when a report is out of date; after changing dependencies or exports, run `yarn build:knip-reports` and commit the updated reports.
+
+The backend build also builds the bundled frontend. See [Phase 2 user stories](docs/phase-2-user-stories.md) for exercised interactions and future user-versus-system authentication requirements.
+
+For the original prototype requirements, parity gaps, and six recorded walkthroughs, see [RHDH story comparison](docs/rhdh-story-comparison.md). Reusable Hub application request bodies are in [`dev-host/data/seeds/`](dev-host/data/seeds/); only the `live-seeded` scenario provisions them, and nothing analyzes them automatically.
 
 ## UI Design System
 

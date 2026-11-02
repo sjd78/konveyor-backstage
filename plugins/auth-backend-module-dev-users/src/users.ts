@@ -1,8 +1,13 @@
-import { AuthService, LoggerService } from "@backstage/backend-plugin-api";
-import { CatalogClient } from "@backstage/catalog-client";
-import { stringifyEntityRef, parseEntityRef, type UserEntity, type GroupEntity } from '@backstage/catalog-model';
-import { DevUser, DevUserGroup } from "./types";
-import { inspect } from "node:util";
+import { AuthService, LoggerService } from '@backstage/backend-plugin-api';
+import { CatalogClient } from '@backstage/catalog-client';
+import {
+  stringifyEntityRef,
+  parseEntityRef,
+  type UserEntity,
+  type GroupEntity,
+} from '@backstage/catalog-model';
+import { DevUser, DevUserGroup } from './types';
+import { inspect } from 'node:util';
 
 const FALLBACK_USERS: DevUser[] = [
   { userEntityRef: 'user:default/guest', displayName: 'Guest' },
@@ -64,7 +69,15 @@ export async function warmupCatalogUsers(opts: {
   warmupResolve?.();
 }
 
-export async function getCatalogUsers({ auth, catalogClient, logger }: { auth: AuthService, catalogClient: CatalogClient, logger: LoggerService }): Promise<DevUser[]> {
+export async function getCatalogUsers({
+  auth,
+  catalogClient,
+  logger,
+}: {
+  auth: AuthService;
+  catalogClient: CatalogClient;
+  logger: LoggerService;
+}): Promise<DevUser[]> {
   const now = Date.now();
   if (cachedUsers && now < cacheExpiry) {
     return cachedUsers;
@@ -106,13 +119,17 @@ export async function getCatalogUsers({ auth, catalogClient, logger }: { auth: A
         { token },
       ),
     ]);
-    logger.debug(`Users found in the catalog: ${inspect(userResponse, { depth: 4 })}`);
+    logger.debug(
+      `Users found in the catalog: ${inspect(userResponse, { depth: 4 })}`,
+    );
 
     const groupDisplayNames = new Map<string, string>();
     for (const entity of groupResponse.items) {
       const group = entity as GroupEntity;
       const ref = stringifyEntityRef(group);
-      const profile = group.spec?.profile as Record<string, unknown> | undefined;
+      const profile = group.spec?.profile as
+        | Record<string, unknown>
+        | undefined;
       const displayName =
         (typeof profile?.displayName === 'string' && profile.displayName) ||
         group.metadata?.title ||
@@ -130,18 +147,27 @@ export async function getCatalogUsers({ auth, catalogClient, logger }: { auth: A
         user.metadata?.name ||
         ref;
 
-      const memberOf: DevUserGroup[] | undefined = user.spec?.memberOf?.map(rawRef => {
-        const parsed = parseEntityRef(rawRef, { defaultKind: 'Group', defaultNamespace: user.metadata?.namespace ?? 'default' });
-        const groupRef = stringifyEntityRef(parsed);
-        return {
-          groupEntityRef: groupRef,
-          displayName: groupDisplayNames.get(groupRef) ?? parsed.name,
-        };
-      });
+      const memberOf: DevUserGroup[] | undefined = user.spec?.memberOf?.map(
+        rawRef => {
+          const parsed = parseEntityRef(rawRef, {
+            defaultKind: 'Group',
+            defaultNamespace: user.metadata?.namespace ?? 'default',
+          });
+          const groupRef = stringifyEntityRef(parsed);
+          return {
+            groupEntityRef: groupRef,
+            displayName: groupDisplayNames.get(groupRef) ?? parsed.name,
+          };
+        },
+      );
 
       return { userEntityRef: ref, displayName, memberOf };
     });
-    logger.debug(`Users loaded from catalog: ${users.map(user => user.displayName).join(', ')}`);
+    logger.debug(
+      `Users loaded from catalog: ${users
+        .map(user => user.displayName)
+        .join(', ')}`,
+    );
 
     if (users.length > 0) {
       cachedUsers = users;
@@ -152,14 +178,23 @@ export async function getCatalogUsers({ auth, catalogClient, logger }: { auth: A
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     logger.error(
-      `Failed to fetch users from catalog, using fallback: ${err}`, error
+      `Failed to fetch users from catalog, using fallback: ${err}`,
+      error,
     );
   }
 
   return cachedUsers ?? FALLBACK_USERS;
 }
 
-export async function getCatalogUserRefs({ auth, catalogClient, logger }: { auth: AuthService, catalogClient: CatalogClient, logger: LoggerService }): Promise<string[]> {
+export async function getCatalogUserRefs({
+  auth,
+  catalogClient,
+  logger,
+}: {
+  auth: AuthService;
+  catalogClient: CatalogClient;
+  logger: LoggerService;
+}): Promise<string[]> {
   const users = await getCatalogUsers({ auth, catalogClient, logger });
   const refs = users.map(user => user.userEntityRef);
   if (refs.length === 0) {

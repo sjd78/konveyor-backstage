@@ -1,19 +1,23 @@
 import Button from '@material-ui/core/Button';
 import { EmptyState } from '@backstage/core-components';
-import type { Persona } from '../../types';
+import type { PersonaRole } from '../../hooks/usePersonaRole';
 
 export function PhaseNotStarted({
   persona,
+  connected = false,
+  isExecuting = false,
   onStartDiscovery,
 }: {
-  persona: Persona;
-  onStartDiscovery: () => void;
+  persona: PersonaRole;
+  connected?: boolean;
+  isExecuting?: boolean;
+  onStartDiscovery?: () => void;
 }) {
-  if (persona === 'developer') {
+  if (!connected) {
     return (
       <EmptyState
-        title="Migration not started"
-        description="The application architect has not started migration for this application."
+        title="No Hub application connected"
+        description="Register this application in Konveyor Hub, then set this component's konveyor.io/application-id annotation to its numeric Hub application ID. In development, restart the catalog snapshot after registering the Hub application."
         missing="content"
       />
     );
@@ -21,12 +25,23 @@ export function PhaseNotStarted({
 
   return (
     <EmptyState
-      title="No migration data yet"
-      description="Scan this application's source code to discover technologies and find migration paths."
+      title="Discovery not started"
+      description={
+        persona === 'architect'
+          ? 'Run repository discovery for this connected Hub application to identify its technologies.'
+          : 'An application architect can start discovery for this connected Hub application.'
+      }
       action={
-        <Button variant="contained" color="primary" onClick={onStartDiscovery}>
-          Start discovery
-        </Button>
+        persona === 'architect' && onStartDiscovery ? (
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={isExecuting}
+            onClick={onStartDiscovery}
+          >
+            Start discovery
+          </Button>
+        ) : undefined
       }
       missing="content"
     />

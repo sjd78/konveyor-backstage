@@ -1,0 +1,82 @@
+# Development inventory: a YAML list of individual Hub application bodies.
+# The `live-seeded` start scenario POSTs each missing entry (matched by name) to
+# /hub/applications; `live-unconnected` and `offline` build unconnected Backstage
+# Components from them. No analysis is started.
+# No IDs, credentials, tags, analysis profiles, tasks, findings, or states are seeded.
+# Checked: 2026-10-28 via GitHub repository metadata, branch, and contents APIs.
+# Repository: https://github.com/konveyor/example-applications
+# Default branch: main
+# Observed main commit: 41f4e20bbf71fe318b11b173787aa87ba6281aec
+# Keep branch as main: the addon git pull workflow requires a named branch,
+# not a detached commit checkout. The observed commit is provenance, not a pin.
+# Metadata: https://api.github.com/repos/konveyor/example-applications
+# Ref: https://api.github.com/repos/konveyor/example-applications/branches/main
+# Root inventory: https://api.github.com/repos/konveyor/example-applications/contents/?ref=41f4e20bbf71fe318b11b173787aa87ba6281aec
+# Exactly five root directories exist at that ref; each is retained below.
+# Paths are relative to the repository root, not separate Git repositories.
+# Analysis compatibility/results have not been exercised; select an appropriate
+# installed analyzer/profile separately. These payloads only register inventory.
+
+# Source: https://github.com/konveyor/example-applications/tree/41f4e20bbf71fe318b11b173787aa87ba6281aec/book-server
+# pom.xml declares Spring Boot 2.1.0.RELEASE; README only gives the project name.
+- name: book-server
+  description: Spring Boot 2.1.0 BookServer Java sample from Konveyor example-applications.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/example-applications.git
+    branch: main
+    path: book-server
+
+# Source: https://github.com/konveyor/example-applications/tree/41f4e20bbf71fe318b11b173787aa87ba6281aec/daytrader
+# Java EE 7 / WAS Liberty sample, not a Spring Boot application. The root POM
+# aggregates daytrader-ee7-ejb, daytrader-ee7-web, and daytrader-ee7; retain the
+# parent folder so those modules stay together. README runtime instructions are
+# not proof of compatibility with any currently installed analyzer/profile.
+- name: daytrader
+  description: Java EE 7 DayTrader stock-trading benchmark with EJB, web, and Liberty Maven modules.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/example-applications.git
+    branch: main
+    path: daytrader
+
+# Source: https://github.com/konveyor/example-applications/tree/41f4e20bbf71fe318b11b173787aa87ba6281aec/example-1
+# README calls this customer-tomcat-legacy and demonstrates containerization
+# analysis. Historical README screenshots are not expected current findings.
+- name: example-1
+  description: Customer-tomcat-legacy Java application used by the Konveyor containerization walkthrough.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/example-applications.git
+    branch: main
+    path: example-1
+
+# Source: https://github.com/konveyor/example-applications/tree/41f4e20bbf71fe318b11b173787aa87ba6281aec/petclinic
+# WARNING: This directory contains README.md ONLY, not application source or a
+# pom.xml. Keep it as the fifth verified inventory entry, but do not expect Java
+# analysis findings from this path. README points to source in a DIFFERENT repo:
+# https://github.com/konveyor/spring-framework-petclinic/tree/legacy
+# This inventory entry deliberately retains the docs-only folder. The separate
+# petclinic-source.yaml companion verifies and selects the external legacy source.
+# The walkthrough also describes custom rules/target setup; registering this
+# body neither installs those rules nor recreates that analysis configuration.
+- name: petclinic
+  description: Documentation-only Petclinic walkthrough folder; application source is external, so this path is not a runnable Java analysis sample.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/example-applications.git
+    branch: main
+    path: petclinic
+
+# Source: https://github.com/konveyor/example-applications/tree/41f4e20bbf71fe318b11b173787aa87ba6281aec/seam-booking
+# Legacy JBoss Seam Java sources, resources, and views are present. The minimal
+# pom.xml declares NO dependencies; do not assume a build or dependency-aware
+# Java analysis can resolve the legacy framework without separate configuration.
+# This is not a Spring Boot sample and no migration target is preselected.
+- name: seam-booking
+  description: Legacy JBoss Seam booking Java source sample with a minimal dependency-free Maven descriptor.
+  repository:
+    kind: git
+    url: https://github.com/konveyor/example-applications.git
+    branch: main
+    path: seam-booking

@@ -1,9 +1,7 @@
 import SwapHorizIcon from '@material-ui/icons/SwapHoriz';
 
 const MigrationIcon = () => {
-  return (
-    <SwapHorizIcon />
-  );
+  return <SwapHorizIcon />;
 };
 
 export { MigrationIcon };
