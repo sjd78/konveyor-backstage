@@ -1,8 +1,7 @@
-import Box from '@material-ui/core/Box';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import Typography from '@material-ui/core/Typography';
-import { InfoCard } from '@backstage/core-components';
+import { Text } from '@backstage/ui';
 import type { KonveyorApplication, KonveyorTask } from '../../api/types';
+import { DetailList, DetailRow, Section, TaskProgress } from '../shared/MtaUi';
+import styles from './PhaseProgress.module.css';
 
 export interface PhaseAnalyzingProps {
   task: KonveyorTask | null;
@@ -15,42 +14,46 @@ export function PhaseAnalyzing({
   app,
   profileName,
 }: PhaseAnalyzingProps) {
+  const ref = app.repository?.branch || app.repository?.tag;
   return (
-    <Box mb={2}>
-      <InfoCard
-        title="Analysis task"
-        subheader={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
-      >
-        <LinearProgress />
-        <Box my={2}>
-          <Typography variant="body2">
-            {task?.activity?.[task.activity.length - 1] ||
-              'Waiting for Hub analysis results.'}
-          </Typography>
-        </Box>
+    <Section
+      title="Analysis task"
+      description={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
+    >
+      <TaskProgress
+        label={
+          task?.activity?.[task.activity.length - 1] ||
+          'Waiting for Hub analysis results.'
+        }
+      />
+      <DetailList>
         {profileName && (
-          <Typography variant="body2">
-            Analysis profile: {profileName}
-          </Typography>
+          <DetailRow label="Analysis profile">
+            <Text as="span">{profileName}</Text>
+          </DetailRow>
         )}
-        <Typography variant="body2">
-          Repository: {app.repository?.url || 'Not configured in Hub'}
-        </Typography>
-        {(app.repository?.branch || app.repository?.tag) && (
-          <Typography variant="body2">
-            Ref: {app.repository.branch || app.repository.tag}
-          </Typography>
+        <DetailRow label="Repository">
+          <Text as="span" className={styles.mono}>
+            {app.repository?.url || 'Not configured in Hub'}
+          </Text>
+        </DetailRow>
+        {ref && (
+          <DetailRow label="Ref">
+            <Text as="span">{ref}</Text>
+          </DetailRow>
         )}
         {app.repository?.path && (
-          <Typography variant="body2">Path: {app.repository.path}</Typography>
+          <DetailRow label="Path">
+            <Text as="span" className={styles.mono}>
+              {app.repository.path}
+            </Text>
+          </DetailRow>
         )}
-        <Box mt={2}>
-          <Typography variant="body2" color="textSecondary">
-            You can leave this page. Task status and findings are loaded from
-            Hub when you return.
-          </Typography>
-        </Box>
-      </InfoCard>
-    </Box>
+      </DetailList>
+      <Text as="p" color="secondary">
+        You can leave this page. Task status and findings are loaded from Hub
+        when you return.
+      </Text>
+    </Section>
   );
 }
