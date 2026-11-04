@@ -16,7 +16,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@backstage/ui';
+import { identityApiRef } from '@backstage/core-plugin-api';
 import { TestApiProvider } from '@backstage/frontend-test-utils';
+import { EntityProvider } from '@backstage/plugin-catalog-react';
+import { mtaApiRef } from '../../../src/api';
+import { MigrationTab } from '../../../src/components/MigrationTab';
 import { AssetFileBrowser } from '../../../src/components/deploymentAssets/AssetFileBrowser';
 import { DeploymentAssetDialog } from '../../../src/components/deploymentAssets/DeploymentAssetDialog';
 import {
@@ -32,6 +36,10 @@ import {
   createDeploymentAssetsFixture,
   renderAssetFixture,
 } from '../../fixtures/deploymentAssets';
+import { createMigrationEntity } from '../../fixtures/catalog';
+import { createIdentity } from '../../fixtures/identity';
+import { createMtaApi } from '../../fixtures/mtaApi';
+import { migrationScenarios } from '../../fixtures/scenarios';
 import type { GalleryState } from '../states';
 
 const fixtureAssets = renderAssetFixture(
@@ -143,7 +151,41 @@ const commitApi = createDeploymentAssetsFixture();
 const renderErrorApi = createDeploymentAssetsFixture({ render: 'error' });
 const emptyApi = createDeploymentAssetsFixture({ render: 'empty' });
 
+/**
+ * The findings screen as an architect reaches it, with a deployment asset host
+ * registered. The screen and its data come from the Migration tab findings
+ * scenario, so only the extra action and dialog differ.
+ */
+function FindingsEntryTile() {
+  const scenario = migrationScenarios.findingsArchitect;
+  const [api] = useState(() => createMtaApi(scenario.api));
+  const [identity] = useState(() => createIdentity(scenario.persona));
+  const [entity] = useState(() => createMigrationEntity(scenario.annotation));
+  const [assetsApi] = useState(() => createDeploymentAssetsFixture());
+  return (
+    <EntityProvider entity={entity}>
+      <TestApiProvider
+        apis={[
+          [mtaApiRef, api],
+          [identityApiRef, identity],
+          [deploymentAssetsApiRef, assetsApi],
+        ]}
+      >
+        <MigrationTab />
+      </TestApiProvider>
+    </EntityProvider>
+  );
+}
+
 export const assetStates: GalleryState[] = [
+  {
+    id: 'feature-assets-entry',
+    name: 'Analysis findings, Generate deployment assets',
+    trigger:
+      'An architect opens findings when a host registers a deployment asset API.',
+    kind: 'custom',
+    render: () => <FindingsEntryTile />,
+  },
   {
     id: 'feature-assets-browser',
     name: 'Asset file browser with preview',
