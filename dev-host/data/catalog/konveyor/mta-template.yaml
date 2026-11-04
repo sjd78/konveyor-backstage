@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: mta-register-application
   title: Register application for migration
-  description: Register a Git repository with the Migration Toolkit for Applications. The application will appear in the catalog after technology discovery completes.
+  description: Register an application for migration from the catalog or a Git repository.
   tags:
     - migration
     - mta
@@ -12,37 +12,62 @@ spec:
   type: service
   parameters:
     - title: Application details
-      description: Enter the Git repository URL of the application to analyze.
+      description: >-
+        Select an existing application from the catalog, or enter a repository
+        URL to register a new one.
       required:
-        - repoUrl
+        - application
       properties:
-        repoUrl:
-          title: Repository URL
-          type: string
-          description: Git repository URL for the application
-          ui:placeholder: 'https://github.com/org/repo'
-        rootPath:
-          title: Application root path
-          type: string
-          description: >-
-            Path to the application root directory within the repository.
-            Use for monorepos (e.g., "services/inventory"). Leave empty
-            if the application is at the repository root.
-          ui:placeholder: 'services/my-app'
+        application:
+          title: Application
+          type: object
+          required:
+            - applicationSource
+          ui:field: MtaApplicationSource
+          # The field renders and announces its own errors. Hiding the native
+          # copy under the field avoids the same sentence twice; rawErrors still
+          # reach the field so its errors show after Review.
+          ui:hideError: true
+          properties:
+            applicationSource:
+              title: Application source
+              type: string
+              enum: [catalog, repository]
+              enumNames: [Existing catalog application, Git repository]
+            entityRef:
+              title: Catalog application
+              type: string
+            repository:
+              title: Repository
+              type: string
+              ui:widget: hidden
+            repoUrl:
+              title: Repository URL
+              type: string
+            rootPath:
+              title: Application root path
+              type: string
   steps:
-    - id: register-with-mta
+    # One registration step for both paths. The action accepts exactly one of
+    # entityRef or repoUrl, so the task page never lists a step that did not run.
+    - id: register
       name: Register with MTA
       action: mta:register-application
       input:
-        repoUrl: ${{ parameters.repoUrl }}
-        rootPath: ${{ parameters.rootPath }}
+        entityRef: ${{ parameters.application.entityRef }}
+        repoUrl: ${{ parameters.application.repoUrl }}
+        repository: ${{ parameters.application.repository }}
+        rootPath: ${{ parameters.application.rootPath }}
   output:
     links:
+      # The catalog path links the Component the member selected; the repository
+      # path links the Component the entity provider creates after registration.
       - title: View migration status
-        url: /catalog/default/component/${{ steps['register-with-mta'].output.applicationName }}/migration?autoDiscover=true
+        url: >-
+          ${{ '/catalog/' + steps.register.output.entityNamespace + '/component/' + steps.register.output.entityName + '/migration' + ('?autoDiscover=true' if steps.register.output.autoDiscover else '') }}
     text:
       - title: Application registered
         content: |
-          **${{ steps['register-with-mta'].output.applicationTitle }}** has been registered with MTA.
+          **${{ steps.register.output.applicationTitle }}** has been registered with MTA.
 
           Click **View migration status** to see discovered technologies and select a migration path.
