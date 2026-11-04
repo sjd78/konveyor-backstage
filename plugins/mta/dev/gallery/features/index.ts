@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import type { GalleryState } from '../states';
+import { assetStates } from './assets';
 import { registrationStates } from './registration';
 import { configStates } from './config';
 
@@ -23,6 +24,7 @@ import { configStates } from './config';
  * here.
  */
 export const featureStates: GalleryState[] = [
+  ...assetStates,
   ...registrationStates,
   ...configStates,
 ];
