@@ -1,7 +1,8 @@
-import { Button, Text } from '@backstage/ui';
-import { RiRefreshLine } from '@remixicon/react';
+import { Button, ButtonLink, Text } from '@backstage/ui';
+import { RiExternalLinkLine, RiRefreshLine } from '@remixicon/react';
 import { EmptyState } from '../shared/MtaUi';
 import { FindingsTable } from './FindingsTable';
+import { useMtaConfig } from '../../config/useMtaConfig';
 import type { KonveyorApplication } from '../../api/types';
 import type { MigrationIssue, Persona } from '../../types';
 import styles from './PhaseActive.module.css';
@@ -19,6 +20,7 @@ export function PhaseActive({
   persona,
   onRunAnalysis,
 }: PhaseActiveProps) {
+  const config = useMtaConfig();
   return (
     <div className={styles.stack}>
       <div className={styles.header}>
@@ -26,8 +28,8 @@ export function PhaseActive({
           Analysis findings for {app.name}
         </Text>
         {/*
-         * The actions keep their own container so a later change can add an
-         * action next to "Run analysis" without touching the findings table.
+         * The actions keep their own container so the Dev Spaces link can sit
+         * beside "Run analysis" without touching the findings table.
          */}
         <div className={styles.actions}>
           {persona === 'architect' && onRunAnalysis && (
@@ -38,6 +40,21 @@ export function PhaseActive({
             >
               Run analysis
             </Button>
+          )}
+          {/*
+           * Every persona can open the configured dashboard. The link only
+           * exists when a deployment sets mta.devSpaces.url.
+           */}
+          {config.devSpacesUrl && (
+            <ButtonLink
+              variant="secondary"
+              iconStart={<RiExternalLinkLine />}
+              href={config.devSpacesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open in Dev Spaces
+            </ButtonLink>
           )}
         </div>
       </div>
