@@ -13,9 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type {
-  AssetGenerator,
-  RenderedAsset,
+import {
+  ASSET_BRANCH_NAME,
+  type AssetGenerator,
+  type AssetRenderResult,
+  type DeploymentAssetApplication,
+  type DeploymentAssetsApi,
+  type RenderedAsset,
 } from '../../src/api/deploymentAssets';
 
 /*
@@ -367,8 +371,7 @@ spec:
  * Two files whose directory names are longer than their row, for the tile that
  * shows the full path on hover and focus. The short file name fits, so only
  * the directory clips.
- */
-export const LONG_PATH_ASSETS: RenderedAsset[] = [
+ */ export const LONG_PATH_ASSETS: RenderedAsset[] = [
   {
     path: 'a-very-long-directory-name-for-a-migration-template/nested-module-with-a-long-name/config.yaml',
     generatorId: 'deployment',
@@ -390,3 +393,60 @@ data:
   QUARKUS_HTTP_PORT: "8080"`,
   },
 ];
+
+/** What one fixture answers for a render request. */
+export type AssetFixtureRenderOutcome = 'files' | 'empty' | 'error';
+
+export interface DeploymentAssetsFixtureOptions {
+  /** What renderDeploymentAssets answers. */
+  render?: AssetFixtureRenderOutcome;
+  /** Whether commitDeploymentAssets resolves or rejects. */
+  commit?: 'committed' | 'error';
+}
+
+const RENDER_ERROR =
+  'The Hub did not render deployment assets for this application.';
+const COMMIT_ERROR = 'The Hub could not create the branch in this repository.';
+
+/**
+ * A deployment asset API for the gallery, where no Hub backs the dialog. Each
+ * tile picks the outcome, so every dialog state can be inspected without a
+ * backend.
+ */
+export function createDeploymentAssetsFixture({
+  render = 'files',
+  commit = 'committed',
+}: DeploymentAssetsFixtureOptions = {}): DeploymentAssetsApi {
+  const files = (
+    application: DeploymentAssetApplication,
+  ): AssetRenderResult => ({
+    generators: ASSET_FIXTURE_GENERATORS,
+    assets: renderAssetFixture(
+      application.name,
+      application.repository?.url ?? '',
+    ),
+  });
+  return {
+    async renderDeploymentAssets({ application }) {
+      if (render === 'error') throw new Error(RENDER_ERROR);
+      if (render === 'empty') return { generators: [], assets: [] };
+      return files(application);
+    },
+    async commitDeploymentAssets({ repositoryUrl }) {
+      if (commit === 'error') throw new Error(COMMIT_ERROR);
+      return {
+        repositoryUrl,
+        branch: ASSET_BRANCH_NAME,
+        branchUrl: `${repositoryUrl.replace(
+          /\.git$/,
+          '',
+        )}/tree/${ASSET_BRANCH_NAME}`,
+      };
+    },
+    async getDeliveredAssets(application) {
+      // Only a render that produced files has anything to deliver.
+      if (render !== 'files') return { generators: [], assets: [] };
+      return files(application);
+    },
+  };
+}

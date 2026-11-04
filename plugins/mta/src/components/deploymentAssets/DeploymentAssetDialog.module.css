@@ -1,0 +1,280 @@
+/*
+ * Copyright 2026 The Backstage Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Deployment asset workspace dialog and its repository settings. Everything
+ * uses BUI tokens so the body, the settings panel and the footer read the same
+ * in light and dark themes.
+ */
+
+.dialog :global(.bui-DialogHeader) {
+  padding: var(--bui-space-3) var(--bui-space-4);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-4);
+  min-height: 0;
+  padding: var(--bui-space-4);
+  overflow: auto;
+}
+
+/* The preview owns its own scroll containers, so the dialog body does not scroll. */
+.previewBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-3);
+  min-height: 0;
+  flex: 1;
+  padding: var(--bui-space-4);
+  overflow: hidden;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-4);
+  min-height: 0;
+  flex: 1;
+}
+
+/* Gives the file browser the remaining height so it scrolls inside the dialog. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* --------------------------------------------------------------- skeleton */
+
+.skeleton {
+  display: grid;
+  grid-template-columns: minmax(13rem, 19rem) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--bui-border-1);
+  border-radius: var(--bui-radius-3);
+  overflow: hidden;
+}
+
+.skeletonTree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-2);
+  padding: var(--bui-space-3);
+  border-right: 1px solid var(--bui-border-1);
+  background: var(--bui-bg-neutral-1);
+}
+
+.skeletonViewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-2);
+  padding: var(--bui-space-4);
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ footer */
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-3);
+  flex: none;
+  padding: var(--bui-space-3) var(--bui-space-4);
+  border-top: 1px solid var(--bui-border-1);
+}
+
+.settings {
+  padding: var(--bui-space-3);
+  border: 1px solid var(--bui-border-1);
+  border-radius: var(--bui-radius-3);
+  background: var(--bui-bg-neutral-2);
+}
+
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--bui-space-3);
+}
+
+.destination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--bui-space-2);
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--bui-space-2);
+}
+
+/* Inline repository names and branches read as fixed values, not prose. */
+.codeChip {
+  padding: 0 var(--bui-space-1) calc(var(--bui-space-1) / 2);
+  border: 1px solid var(--bui-border-1);
+  border-radius: var(--bui-radius-1);
+  background: var(--bui-bg-neutral-2);
+  font-family: var(--bui-font-monospace);
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- results */
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bui-space-3);
+  flex: 1;
+  padding: var(--bui-space-6);
+  text-align: center;
+}
+
+.resultIcon {
+  color: var(--bui-fg-positive);
+}
+
+.resultText {
+  max-width: 34rem;
+}
+
+/* --------------------------------------------------------- repository form */
+
+.radioGroup :global(.bui-RadioGroupContent) {
+  gap: var(--bui-space-1);
+}
+
+.radio {
+  align-items: flex-start;
+  padding: var(--bui-space-2);
+  border-radius: var(--bui-radius-2);
+  font-size: var(--bui-font-size-3);
+}
+
+.radio::before {
+  margin-top: 0.15rem;
+}
+
+.radio:hover {
+  background: var(--bui-bg-neutral-1-hover);
+}
+
+.radioText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.radioTitle {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--bui-space-1);
+}
+
+.radioCode {
+  font-family: var(--bui-font-monospace);
+  font-size: var(--bui-font-size-2);
+  color: var(--bui-fg-secondary);
+  overflow-wrap: anywhere;
+}
+
+.urlField {
+  max-width: 32rem;
+  width: 100%;
+  margin-left: var(--bui-space-6);
+}
+
+/* Shown only while the configuration URL cannot be used. */
+.fieldError {
+  margin-top: var(--bui-space-1);
+  color: var(--bui-fg-negative);
+}
+
+/* ------------------------------------------------------------- narrow view */
+
+@media (max-width: 50rem) {
+  .skeleton {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(7rem, 34%) minmax(0, 1fr);
+  }
+
+  .skeletonTree {
+    border-right: none;
+    border-bottom: 1px solid var(--bui-border-1);
+  }
+
+  .footerRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .destination {
+    flex: none;
+  }
+
+  .actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .download {
+    flex: 1 1 auto;
+  }
+
+  .commit {
+    order: 1;
+    flex: 1 1 100%;
+  }
+
+  /* Narrow screens show the destination form instead of squeezing both panes. */
+  .bodyEditing {
+    display: none;
+  }
+
+  .footerEditing {
+    flex: 1;
+    justify-content: space-between;
+    overflow: auto;
+  }
+
+  .urlField {
+    margin-left: 0;
+  }
+
+  .codeChip {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .result {
+    padding: var(--bui-space-4);
+  }
+}

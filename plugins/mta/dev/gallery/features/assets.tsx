@@ -13,15 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Button } from '@backstage/ui';
+import { TestApiProvider } from '@backstage/frontend-test-utils';
 import { AssetFileBrowser } from '../../../src/components/deploymentAssets/AssetFileBrowser';
-import type {
-  AssetGenerator,
-  RenderedAsset,
+import { DeploymentAssetDialog } from '../../../src/components/deploymentAssets/DeploymentAssetDialog';
+import {
+  deploymentAssetsApiRef,
+  type AssetGenerator,
+  type DeploymentAssetApplication,
+  type DeploymentAssetsApi,
+  type RenderedAsset,
 } from '../../../src/api/deploymentAssets';
 import {
   ASSET_FIXTURE_GENERATORS,
   LONG_PATH_ASSETS,
+  createDeploymentAssetsFixture,
   renderAssetFixture,
 } from '../../fixtures/deploymentAssets';
 import type { GalleryState } from '../states';
@@ -56,6 +64,85 @@ function BrowserTile({
   );
 }
 
+const DIALOG_APPLICATION: DeploymentAssetApplication = {
+  id: 7,
+  name: 'example-app',
+  repository: {
+    url: 'https://github.com/konveyor/example-applications.git',
+  },
+};
+
+/**
+ * Presses Commit files once the open dialog shows the files, so a tile can
+ * present the committed result the way a member reaches it. The dialog owns
+ * that state, and the tile keeps using the real action instead of faking a
+ * result.
+ */
+function useCommitWhenReady(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const timer = window.setInterval(() => {
+      // The dialog portals to the document body, so it is not inside the tile.
+      const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+      const dialog = dialogs[dialogs.length - 1];
+      const commit = Array.from(dialog?.querySelectorAll('button') ?? []).find(
+        element => element.textContent?.trim() === 'Commit files',
+      );
+      if (commit) {
+        window.clearInterval(timer);
+        commit.click();
+      }
+    }, 50);
+    return () => window.clearInterval(timer);
+  }, [enabled]);
+}
+
+/**
+ * Renders the real dialog with a fixture API. The dialog portals its overlay to
+ * the document body, so a tile cannot contain it: `?state=<id>` opens it and
+ * lets the tile fill the viewport, which is what the screenshot run loads. In
+ * the full gallery the dialog starts closed behind a button, because several
+ * open overlays would cover each other.
+ */
+function DialogTile({
+  stateId,
+  api,
+  commitOnReady = false,
+}: {
+  stateId: string;
+  api: DeploymentAssetsApi;
+  commitOnReady?: boolean;
+}) {
+  const [searchParams] = useSearchParams();
+  const focused = searchParams.has('state');
+  const [open, setOpen] = useState(focused);
+  useCommitWhenReady(open && commitOnReady);
+  return (
+    <div style={{ position: 'relative', height: '46rem' }}>
+      {focused && (
+        <style>{`section[data-gallery-state="${stateId}"] { position: fixed; inset: 0; margin: 0; overflow: auto; }`}</style>
+      )}
+      {!open && (
+        <Button variant="secondary" onPress={() => setOpen(true)}>
+          Open deployment assets
+        </Button>
+      )}
+      <TestApiProvider apis={[[deploymentAssetsApiRef, api]]}>
+        <DeploymentAssetDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          application={DIALOG_APPLICATION}
+        />
+      </TestApiProvider>
+    </div>
+  );
+}
+
+const previewApi = createDeploymentAssetsFixture();
+const commitApi = createDeploymentAssetsFixture();
+const renderErrorApi = createDeploymentAssetsFixture({ render: 'error' });
+const emptyApi = createDeploymentAssetsFixture({ render: 'empty' });
+
 export const assetStates: GalleryState[] = [
   {
     id: 'feature-assets-browser',
@@ -71,5 +158,46 @@ export const assetStates: GalleryState[] = [
     trigger: 'A directory name longer than its row discloses the full path.',
     kind: 'custom',
     render: () => <BrowserTile files={LONG_PATH_ASSETS} />,
+  },
+  {
+    id: 'feature-assets-preview',
+    name: 'Asset workspace dialog, files rendered',
+    trigger:
+      'The dialog previews the rendered files and offers Download ZIP and Commit files.',
+    kind: 'custom',
+    render: () => (
+      <DialogTile stateId="feature-assets-preview" api={previewApi} />
+    ),
+  },
+  {
+    id: 'feature-assets-commit-success',
+    name: 'Asset workspace dialog, committed to a branch',
+    trigger:
+      'Committing the files creates the branch, and the dialog reports it with a link.',
+    kind: 'custom',
+    render: () => (
+      <DialogTile
+        stateId="feature-assets-commit-success"
+        api={commitApi}
+        commitOnReady
+      />
+    ),
+  },
+  {
+    id: 'feature-assets-render-error',
+    name: 'Asset workspace dialog, render failed',
+    trigger: 'The Hub rejects the render and the dialog offers Retry.',
+    kind: 'custom',
+    render: () => (
+      <DialogTile stateId="feature-assets-render-error" api={renderErrorApi} />
+    ),
+  },
+  {
+    id: 'feature-assets-empty',
+    name: 'Asset workspace dialog, no files returned',
+    trigger:
+      'The Hub renders no files for the application, and the dialog explains why.',
+    kind: 'custom',
+    render: () => <DialogTile stateId="feature-assets-empty" api={emptyApi} />,
   },
 ];
