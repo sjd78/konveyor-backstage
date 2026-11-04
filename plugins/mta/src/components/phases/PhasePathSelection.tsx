@@ -1,16 +1,26 @@
+/*
+ * Copyright 2026 The Backstage Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 import { useState } from 'react';
-import Box from '@material-ui/core/Box';
-import Button from '@material-ui/core/Button';
-import Chip from '@material-ui/core/Chip';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Radio from '@material-ui/core/Radio';
-import RadioGroup from '@material-ui/core/RadioGroup';
-import Typography from '@material-ui/core/Typography';
-import { InfoCard } from '@backstage/core-components';
+import { Button, Flex, Radio, RadioGroup, Text } from '@backstage/ui';
+import { DetailList, DetailRow, Section } from '../shared/MtaUi';
 import type {
   KonveyorAnalysisProfile,
   KonveyorApplication,
 } from '../../api/types';
+import styles from './PhasePathSelection.module.css';
 
 export interface PhasePathSelectionProps {
   app: KonveyorApplication;
@@ -35,97 +45,100 @@ export function PhasePathSelection({
   const selectedProfile = profiles.find(
     profile => String(profile.id) === selectedId,
   );
+  const tags = app.tags ?? [];
 
   return (
-    <Box mb={2}>
-      <InfoCard title="Select an analysis profile">
-        <Box mb={2}>
-          <Typography variant="body2">
-            Repository: {app.repository?.url || 'Not configured in Hub'}
-          </Typography>
-          {(app.repository?.branch || app.repository?.tag) && (
-            <Typography variant="body2">
-              Ref: {app.repository.branch || app.repository.tag}
-            </Typography>
-          )}
-          {app.repository?.path && (
-            <Typography variant="body2">Path: {app.repository.path}</Typography>
-          )}
-        </Box>
-        {(app.tags ?? []).map(tag => (
-          <Chip
-            key={tag.id}
-            label={tag.name}
-            size="small"
-            style={{ marginRight: 4, marginBottom: 8 }}
-          />
-        ))}
-        {profiles.length === 0 ? (
-          <Typography variant="body2">
-            No effective analysis profiles are available. In Hub, match this
-            application's tags to an archetype with an analysis profile, then
-            refresh.
-          </Typography>
-        ) : (
-          <RadioGroup
-            aria-label="Analysis profile"
-            value={selectedId}
-            onChange={event => setSelectedId(event.target.value)}
-          >
-            {profiles.map(profile => (
-              <FormControlLabel
-                key={profile.id}
-                value={String(profile.id)}
-                disabled={isExecuting}
-                control={<Radio color="primary" />}
-                label={
-                  <Box my={1}>
-                    <Typography variant="body1">{profile.name}</Typography>
-                    {profile.description && (
-                      <Typography variant="body2" color="textSecondary">
-                        {profile.description}
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="textSecondary">
-                      Profile ID: {profile.id}
-                      {(profile.rules.targets?.length ?? 0) > 0 &&
-                        ` · Targets: ${profile.rules.targets
-                          ?.map(target => target.name || target.id)
-                          .join(', ')}`}
-                    </Typography>
-                  </Box>
-                }
-              />
-            ))}
-          </RadioGroup>
+    <Section title="Select an analysis profile">
+      <DetailList>
+        <DetailRow label="Repository">
+          <Text>{app.repository?.url || 'Not configured in Hub'}</Text>
+        </DetailRow>
+        {(app.repository?.branch || app.repository?.tag) && (
+          <DetailRow label="Ref">
+            <Text>{app.repository.branch || app.repository.tag}</Text>
+          </DetailRow>
         )}
-        <Box display="flex" mt={2} style={{ gap: 8 }}>
+        {app.repository?.path && (
+          <DetailRow label="Path">
+            <Text>{app.repository.path}</Text>
+          </DetailRow>
+        )}
+      </DetailList>
+      {tags.length > 0 && (
+        <ul className={styles.tagList} aria-label="Tags">
+          {tags.map(tag => (
+            <li key={tag.id}>{tag.name}</li>
+          ))}
+        </ul>
+      )}
+      {profiles.length === 0 ? (
+        <Text as="p">
+          No effective analysis profiles are available. In Hub, match this
+          application's tags to an archetype with an analysis profile, then
+          refresh.
+        </Text>
+      ) : (
+        <RadioGroup
+          aria-label="Analysis profile"
+          value={selectedId || null}
+          onChange={setSelectedId}
+        >
+          {profiles.map(profile => (
+            <Radio
+              key={profile.id}
+              value={String(profile.id)}
+              isDisabled={isExecuting}
+              className={styles.pathOption}
+            >
+              <Flex direction="column" gap="1">
+                <Text variant="body-large" weight="bold">
+                  {profile.name}
+                </Text>
+                {profile.description && (
+                  <Text color="secondary">{profile.description}</Text>
+                )}
+                <Text variant="body-small" color="secondary">
+                  Profile ID: {profile.id}
+                  {(profile.rules.targets?.length ?? 0) > 0 &&
+                    ` · Targets: ${profile.rules.targets
+                      ?.map(target => target.name || target.id)
+                      .join(', ')}`}
+                </Text>
+              </Flex>
+            </Radio>
+          ))}
+        </RadioGroup>
+      )}
+      <Flex gap="2">
+        <Button
+          variant="primary"
+          isDisabled={!selectedProfile || isExecuting}
+          onPress={() => {
+            if (selectedProfile) onStartAnalysis(selectedProfile.id);
+          }}
+        >
+          Start analysis
+        </Button>
+        <Button
+          variant="tertiary"
+          isDisabled={isExecuting || !app.repository?.url}
+          onPress={onStartDiscovery}
+        >
+          Run discovery
+        </Button>
+        <Button variant="tertiary" isDisabled={isExecuting} onPress={onRefresh}>
+          Refresh profiles
+        </Button>
+        {onCancel && (
           <Button
-            variant="contained"
-            color="primary"
-            disabled={!selectedProfile || isExecuting}
-            onClick={() =>
-              selectedProfile && onStartAnalysis(selectedProfile.id)
-            }
+            variant="tertiary"
+            isDisabled={isExecuting}
+            onPress={onCancel}
           >
-            Start analysis
+            Cancel
           </Button>
-          <Button
-            disabled={isExecuting || !app.repository?.url}
-            onClick={onStartDiscovery}
-          >
-            Run discovery
-          </Button>
-          <Button disabled={isExecuting} onClick={onRefresh}>
-            Refresh profiles
-          </Button>
-          {onCancel && (
-            <Button disabled={isExecuting} onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-        </Box>
-      </InfoCard>
-    </Box>
+        )}
+      </Flex>
+    </Section>
   );
 }

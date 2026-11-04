@@ -127,6 +127,10 @@ describe('MigrationTab', () => {
     mockUseMigration.mockReturnValue(state);
     render(<MigrationTab />);
     expect(
+      screen.getByRole('radiogroup', { name: 'Analysis profile' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')[0]).toHaveAttribute('tabindex', '0');
+    expect(
       screen.getByRole('button', { name: 'Start analysis' }),
     ).toBeDisabled();
     fireEvent.click(screen.getByRole('radio', { name: /Alternative profile/ }));
