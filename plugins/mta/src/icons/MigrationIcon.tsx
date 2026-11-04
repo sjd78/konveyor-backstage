@@ -1,7 +1,7 @@
-import SwapHorizIcon from '@material-ui/icons/SwapHoriz';
+import { RiArrowLeftRightLine } from '@remixicon/react';
 
 const MigrationIcon = () => {
-  return <SwapHorizIcon />;
+  return <RiArrowLeftRightLine size={24} aria-hidden />;
 };
 
 export { MigrationIcon };
