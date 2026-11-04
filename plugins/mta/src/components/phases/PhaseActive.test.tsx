@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { themes, UnifiedThemeProvider } from '@backstage/theme';
+import { MemoryRouter } from 'react-router-dom';
 import { PhaseActive } from './PhaseActive';
 import type { MigrationIssue, Persona } from '../../types';
 
@@ -9,14 +10,16 @@ function renderFindings(
   issues: MigrationIssue[] = [],
 ) {
   render(
-    <UnifiedThemeProvider theme={themes.light}>
-      <PhaseActive
-        app={{ id: 1, name: 'Live application' }}
-        issues={issues}
-        persona={persona}
-        onRunAnalysis={onRunAnalysis}
-      />
-    </UnifiedThemeProvider>,
+    <MemoryRouter>
+      <UnifiedThemeProvider theme={themes.light}>
+        <PhaseActive
+          app={{ id: 1, name: 'Live application' }}
+          issues={issues}
+          persona={persona}
+          onRunAnalysis={onRunAnalysis}
+        />
+      </UnifiedThemeProvider>
+    </MemoryRouter>,
   );
   return onRunAnalysis;
 }
