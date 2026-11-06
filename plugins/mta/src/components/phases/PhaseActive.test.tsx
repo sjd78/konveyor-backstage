@@ -1,17 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { themes, UnifiedThemeProvider } from '@backstage/theme';
 import { PhaseActive } from './PhaseActive';
-import type { Persona } from '../../types';
+import type { MigrationIssue, Persona } from '../../types';
 
 function renderFindings(
   persona: Persona | 'unknown',
   onRunAnalysis = jest.fn(),
+  issues: MigrationIssue[] = [],
 ) {
   render(
     <UnifiedThemeProvider theme={themes.light}>
       <PhaseActive
         app={{ id: 1, name: 'Live application' }}
-        issues={[]}
+        issues={issues}
         persona={persona}
         onRunAnalysis={onRunAnalysis}
       />
@@ -19,6 +20,16 @@ function renderFindings(
   );
   return onRunAnalysis;
 }
+
+const finding: MigrationIssue = {
+  id: 'issue-1',
+  appId: '1',
+  severity: 'critical',
+  category: 'api-change',
+  description: 'Legacy API',
+  file: 'src/Legacy.java',
+  line: 12,
+};
 
 describe('live findings actions', () => {
   it('runs the supplied analysis action for architects', () => {
@@ -46,5 +57,21 @@ describe('live findings actions', () => {
     expect(
       screen.queryByRole('button', { name: /complete/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the findings table beside the analysis action', () => {
+    renderFindings('architect', jest.fn(), [finding]);
+    expect(
+      screen.getByRole('heading', {
+        name: 'Analysis findings for Live application',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '1 analysis finding' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Run analysis' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('No findings reported')).not.toBeInTheDocument();
   });
 });
