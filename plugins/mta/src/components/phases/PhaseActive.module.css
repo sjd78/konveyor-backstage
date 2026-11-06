@@ -1,0 +1,27 @@
+/*
+ * Screen frame for the findings phase. The actions row has its own container
+ * so a later change can add another action beside "Run analysis" without
+ * touching the findings table.
+ */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-4);
+  min-width: 0;
+}
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bui-space-3);
+  min-width: 0;
+}
+.title {
+  min-width: 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bui-space-2);
+}

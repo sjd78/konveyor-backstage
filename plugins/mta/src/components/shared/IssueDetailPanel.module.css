@@ -1,0 +1,28 @@
+/*
+ * Inline issue details. Values come from BUI semantic tokens so both themes
+ * follow the host theme.
+ */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  min-width: 0;
+}
+.code {
+  margin: 0;
+  padding: var(--bui-space-3) var(--bui-space-4);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+  background: var(--bui-bg-neutral-2);
+  border-radius: var(--bui-radius-2);
+  font: var(--bui-font-size-2) / 1.7 var(--bui-font-monospace);
+}
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  margin: 0;
+  padding-inline-start: var(--bui-space-4);
+}
