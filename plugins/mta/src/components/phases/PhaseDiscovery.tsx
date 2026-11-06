@@ -1,8 +1,7 @@
-import Box from '@material-ui/core/Box';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import Typography from '@material-ui/core/Typography';
-import { InfoCard } from '@backstage/core-components';
+import { Text } from '@backstage/ui';
 import type { KonveyorApplication, KonveyorTask } from '../../api/types';
+import { DetailList, DetailRow, Section, TaskProgress } from '../shared/MtaUi';
+import styles from './PhaseProgress.module.css';
 
 export function PhaseDiscovery({
   app,
@@ -12,37 +11,41 @@ export function PhaseDiscovery({
   task: KonveyorTask | null;
 }) {
   const repository = app.repository;
+  const ref = repository?.branch || repository?.tag;
   return (
-    <Box mb={2}>
-      <InfoCard
-        title="Repository discovery"
-        subheader={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
-      >
-        <LinearProgress />
-        <Box my={2}>
-          <Typography variant="body2">
-            {task?.activity?.[task.activity.length - 1] ||
-              'Waiting for Hub discovery results.'}
-          </Typography>
-        </Box>
-        <Typography variant="body2">
-          Repository: {repository?.url || 'Not configured in Hub'}
-        </Typography>
-        {(repository?.branch || repository?.tag) && (
-          <Typography variant="body2">
-            Ref: {repository.branch || repository.tag}
-          </Typography>
+    <Section
+      title="Repository discovery"
+      description={`Task ${task?.id ?? ''} · ${task?.state ?? 'Loading'}`}
+    >
+      <TaskProgress
+        label={
+          task?.activity?.[task.activity.length - 1] ||
+          'Waiting for Hub discovery results.'
+        }
+      />
+      <DetailList>
+        <DetailRow label="Repository">
+          <Text as="span" className={styles.mono}>
+            {repository?.url || 'Not configured in Hub'}
+          </Text>
+        </DetailRow>
+        {ref && (
+          <DetailRow label="Ref">
+            <Text as="span">{ref}</Text>
+          </DetailRow>
         )}
         {repository?.path && (
-          <Typography variant="body2">Path: {repository.path}</Typography>
+          <DetailRow label="Path">
+            <Text as="span" className={styles.mono}>
+              {repository.path}
+            </Text>
+          </DetailRow>
         )}
-        <Box mt={2}>
-          <Typography variant="body2" color="textSecondary">
-            You can leave this page. Discovery status is restored from Hub tasks
-            when you return.
-          </Typography>
-        </Box>
-      </InfoCard>
-    </Box>
+      </DetailList>
+      <Text as="p" color="secondary">
+        You can leave this page. Discovery status is restored from Hub tasks
+        when you return.
+      </Text>
+    </Section>
   );
 }

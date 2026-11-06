@@ -13,105 +13,242 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Fragment } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import Box from '@material-ui/core/Box';
-import Button from '@material-ui/core/Button';
-import Chip from '@material-ui/core/Chip';
-import Divider from '@material-ui/core/Divider';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
-import Typography from '@material-ui/core/Typography';
-import Skeleton from '@material-ui/lab/Skeleton';
-import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
+import type { ReactNode } from 'react';
 import {
-  EmptyState,
-  InfoCard,
-  StatusError,
-  StatusPending,
-  StatusWarning,
-  WarningPanel,
-} from '@backstage/core-components';
+  Alert,
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  Link,
+  Skeleton,
+  Text,
+} from '@backstage/ui';
+import {
+  RiAlertLine,
+  RiArrowRightLine,
+  RiCloseCircleLine,
+  RiInformationLine,
+  RiRefreshLine,
+  RiRouteLine,
+  RiSearchLine,
+  RiTimeLine,
+  type RemixiconComponentType,
+} from '@remixicon/react';
 import { usePersonaRole } from '../hooks/usePersonaRole';
 import { useMtaHomeData } from '../hooks/useMtaHomeData';
 import type { MtaAppInfo } from '../hooks/useMtaHomeData';
 import { MTA_REGISTER_TEMPLATE_PATH } from '../utils';
+import { EmptyState, StatusTag, type StatusTone } from './shared/MtaUi';
+import styles from './MtaHomeCards.module.css';
 
-function ApplicationStatus({ app }: { app: MtaAppInfo }) {
+/** The home card only uses the four tones the reference shows as icon colors. */
+type StatusToneName = Exclude<StatusTone, 'success' | 'warning-emphasis'>;
+
+interface ApplicationStatusInfo {
+  label: string;
+  icon: RemixiconComponentType;
+  tone: StatusToneName;
+}
+
+const TONE_CLASS: Record<StatusToneName, string> = {
+  neutral: styles.statusNeutral,
+  info: styles.statusInfo,
+  warning: styles.statusWarning,
+  danger: styles.statusDanger,
+};
+
+function applicationStatus(app: MtaAppInfo): ApplicationStatusInfo {
   if (app.connection === 'disconnected') {
-    return <StatusWarning>Not connected to Hub</StatusWarning>;
+    return {
+      label: 'Not connected to Hub',
+      icon: RiAlertLine,
+      tone: 'warning',
+    };
   }
   if (app.connection === 'missing') {
-    return (
-      <StatusError>
-        Linked Hub application is missing or unavailable
-      </StatusError>
-    );
+    return {
+      label: 'Linked Hub application is missing or unavailable',
+      icon: RiCloseCircleLine,
+      tone: 'danger',
+    };
   }
-  if (app.error) return <StatusError>{app.error.message}</StatusError>;
+  if (app.error) {
+    return {
+      label: app.error.message,
+      icon: RiCloseCircleLine,
+      tone: 'danger',
+    };
+  }
   switch (app.status) {
     case 'Discovery':
-      return <StatusPending>Discovery in progress</StatusPending>;
+      return {
+        label: 'Discovery in progress',
+        icon: RiSearchLine,
+        tone: 'info',
+      };
     case 'Path Selection':
-      return <StatusWarning>Path selection needed</StatusWarning>;
+      return {
+        label: 'Path selection needed',
+        icon: RiRouteLine,
+        tone: 'warning',
+      };
     case 'Analysis':
-      return <StatusPending>Analysis in progress</StatusPending>;
+      return {
+        label: 'Analysis in progress',
+        icon: RiRefreshLine,
+        tone: 'info',
+      };
     case 'Analysis Unavailable':
-      return (
-        <StatusWarning>
-          Analysis results unavailable — refresh or run analysis
-        </StatusWarning>
-      );
+      return {
+        label: 'Analysis results unavailable — refresh or run analysis',
+        icon: RiAlertLine,
+        tone: 'warning',
+      };
     case 'Active':
-      return app.issuesCount === 0 ? (
-        <StatusPending>No findings reported</StatusPending>
-      ) : (
-        <StatusWarning>Analysis findings</StatusWarning>
-      );
+      return app.issuesCount === 0
+        ? {
+            label: 'No findings reported',
+            icon: RiInformationLine,
+            tone: 'neutral',
+          }
+        : {
+            label: 'Analysis findings',
+            icon: RiAlertLine,
+            tone: 'warning',
+          };
     case 'Failed':
-      return <StatusError>Task failed — view details</StatusError>;
+      return {
+        label: 'Task failed — view details',
+        icon: RiCloseCircleLine,
+        tone: 'danger',
+      };
     default:
-      return <StatusPending>Not started</StatusPending>;
+      return { label: 'Not started', icon: RiTimeLine, tone: 'neutral' };
   }
 }
 
-function AppRow({ app }: { app: MtaAppInfo }) {
-  const navigate = useNavigate();
+function ApplicationStatus({ app }: { app: MtaAppInfo }) {
+  const { label, icon: Icon, tone } = applicationStatus(app);
   return (
-    <ListItem
-      button
-      onClick={() =>
-        navigate(`/catalog/${app.namespace}/component/${app.name}/migration`)
-      }
-      aria-label={`Open ${app.name} migration tab`}
-    >
-      <ListItemText
-        primary={app.title ?? app.name}
-        primaryTypographyProps={{
-          variant: 'body2',
-          style: { fontWeight: 600 },
-        }}
-        secondary={
-          <>
-            <ApplicationStatus app={app} />
-            {!app.error && app.issuesCount !== undefined && (
-              <Box component="span" display="flex" gridGap={6} mt={0.5}>
-                {(app.criticalIssues ?? 0) > 0 && (
-                  <Chip label={`${app.criticalIssues} critical`} size="small" />
-                )}
-                <Chip
-                  label={`${app.issuesCount} total findings`}
-                  size="small"
-                />
-              </Box>
-            )}
-          </>
-        }
-        secondaryTypographyProps={{ component: 'div' }}
+    <span className={styles.status}>
+      <Icon
+        size={16}
+        aria-hidden
+        className={`${styles.statusIcon} ${TONE_CLASS[tone]}`}
       />
-      <ArrowForwardIcon fontSize="small" color="action" aria-hidden="true" />
-    </ListItem>
+      <Text as="span" variant="body-medium" color="secondary">
+        {label}
+      </Text>
+    </span>
+  );
+}
+
+function AppRow({ app }: { app: MtaAppInfo }) {
+  return (
+    <li>
+      <Link
+        className={styles.appLink}
+        href={`/catalog/${app.namespace}/component/${app.name}/migration`}
+        aria-label={`Open ${app.name} migration tab`}
+      >
+        <span className={styles.appText}>
+          <Text
+            as="span"
+            variant="body-medium"
+            weight="bold"
+            className={styles.appName}
+          >
+            {app.title ?? app.name}
+          </Text>
+          <ApplicationStatus app={app} />
+          {!app.error && app.issuesCount !== undefined && (
+            <span className={styles.appCounts}>
+              {(app.criticalIssues ?? 0) > 0 && (
+                <StatusTag>{`${app.criticalIssues} critical`}</StatusTag>
+              )}
+              <StatusTag>{`${app.issuesCount} total findings`}</StatusTag>
+            </span>
+          )}
+        </span>
+        <RiArrowRightLine size={16} aria-hidden className={styles.appArrow} />
+      </Link>
+    </li>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <li>
+      <span className={styles.skeletonRow}>
+        <span className={styles.skeletonText}>
+          <Skeleton width="45%" height={16} />
+          <span className={styles.skeletonStatus}>
+            <Skeleton
+              width={16}
+              height={16}
+              rounded
+              className={styles.skeletonIcon}
+            />
+            <Skeleton width="30%" height={14} />
+          </span>
+        </span>
+        <Skeleton width={16} height={16} className={styles.skeletonArrow} />
+      </span>
+    </li>
+  );
+}
+
+/**
+ * Loading placeholder that mirrors the row layout, so the card does not jump
+ * when the applications arrive.
+ */
+function LoadingRows({ rows }: { rows: number }) {
+  return (
+    <div
+      role="status"
+      aria-label="Loading migration applications"
+      aria-busy="true"
+    >
+      <ul className={styles.skeletonList}>
+        {Array.from({ length: rows }).map((_, index) => (
+          <SkeletonRow key={index} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function HomeCard({
+  title,
+  centered = false,
+  children,
+}: {
+  title: string;
+  centered?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Card className={styles.card}>
+      <CardHeader className={styles.cardHeader}>
+        <Text as="h2" variant="title-x-small" weight="bold">
+          {title}
+        </Text>
+      </CardHeader>
+      <CardBody className={styles.cardBody}>
+        <div
+          className={[
+            styles.cardContent,
+            centered ? styles.cardContentCentered : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {children}
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -121,18 +258,22 @@ function PortfolioCard({ persona }: { persona: 'architect' | 'developer' }) {
     persona === 'architect'
       ? 'Migration Toolkit for Applications'
       : 'Your Migration';
+  const centered = !loading && !error && apps.length === 0;
   return (
-    <InfoCard title={title}>
-      {loading && <Skeleton variant="rect" height={48} />}
+    <HomeCard title={title} centered={centered}>
+      {loading && <LoadingRows rows={persona === 'architect' ? 2 : 1} />}
       {!loading && error && (
-        <WarningPanel
-          severity="error"
+        <Alert
+          status="danger"
           title="Could not load migration data"
-          message={error.message}
+          description={error.message}
         />
       )}
       {!loading && !error && apps.length === 0 && (
         <EmptyState
+          compact
+          headingLevel={3}
+          headingVariant="title-x-small"
           title={
             persona === 'architect'
               ? 'No applications registered for migration'
@@ -143,50 +284,42 @@ function PortfolioCard({ persona }: { persona: 'architect' | 'developer' }) {
               ? 'Register an application to begin migration.'
               : 'Ask your application architect to assign an application.'
           }
-          missing="content"
           action={
             persona === 'architect' ? (
-              <Button
-                component={RouterLink}
-                to={MTA_REGISTER_TEMPLATE_PATH}
-                variant="outlined"
-                color="primary"
-              >
+              <ButtonLink href={MTA_REGISTER_TEMPLATE_PATH} variant="secondary">
                 Register for migration
-              </Button>
+              </ButtonLink>
             ) : undefined
           }
         />
       )}
       {!loading && !error && apps.length > 0 && (
-        <List dense disablePadding>
-          {apps.map((app, index) => (
-            <Fragment key={`${app.namespace}/${app.name}`}>
-              {index > 0 && <Divider />}
-              <AppRow app={app} />
-            </Fragment>
+        <ul className={styles.list}>
+          {apps.map(app => (
+            <AppRow key={`${app.namespace}/${app.name}`} app={app} />
           ))}
-        </List>
+        </ul>
       )}
       {!loading && (error || apps.length > 0) && (
-        <Box mt={1}>
+        <div className={styles.cardActions}>
           <Button
+            variant="tertiary"
             size="small"
-            onClick={() => {
+            onPress={() => {
               void refetch();
             }}
           >
             Refresh Hub data
           </Button>
-        </Box>
+        </div>
       )}
       {!loading &&
         apps.some(app => app.status === 'Active' && app.issuesCount === 0) && (
-          <Typography variant="caption" color="textSecondary">
+          <Text as="p" variant="body-small" color="secondary">
             Zero findings does not mark a migration complete.
-          </Typography>
+          </Text>
         )}
-    </InfoCard>
+    </HomeCard>
   );
 }
 
@@ -194,20 +327,22 @@ export function MtaHomeSection() {
   const { role: persona, loading } = usePersonaRole();
   if (loading) {
     return (
-      <InfoCard title="Migration Toolkit for Applications">
-        <Skeleton variant="rect" height={48} />
-      </InfoCard>
+      <HomeCard title="Migration Toolkit for Applications">
+        <LoadingRows rows={1} />
+      </HomeCard>
     );
   }
   if (persona === 'architect' || persona === 'developer')
     return <PortfolioCard persona={persona} />;
   return (
-    <InfoCard title="Migration Toolkit for Applications">
+    <HomeCard title="Migration Toolkit for Applications" centered>
       <EmptyState
+        compact
+        headingLevel={3}
+        headingVariant="title-x-small"
         title="Migration access unavailable"
         description="Your account is not assigned a migration role. Contact your administrator for access."
-        missing="content"
       />
-    </InfoCard>
+    </HomeCard>
   );
 }
