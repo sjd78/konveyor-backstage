@@ -1,0 +1,9 @@
+/*
+ * Styles shared by the discovery and analysis progress screens. Every value
+ * comes from a BUI semantic token; app-level theme mapping owns the color
+ * values.
+ */
+.mono {
+  font-family: var(--bui-font-monospace);
+  overflow-wrap: anywhere;
+}

@@ -72,13 +72,51 @@ describe('MigrationTab', () => {
   });
   afterEach(() => jest.clearAllMocks());
 
+  it.each([
+    [
+      'Hub data',
+      () => mockUseMigration.mockReturnValue(migration({ loading: true })),
+    ],
+    [
+      'the persona',
+      () =>
+        mockUsePersonaRole.mockReturnValue({
+          role: 'architect',
+          loading: true,
+        }),
+    ],
+  ])('shows a loading region while %s resolves', (_name, arrange) => {
+    arrange();
+    render(<MigrationTab />);
+    expect(
+      screen.getByRole('status', { name: 'Loading migration' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Start discovery' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('runs discovery against the already connected application', async () => {
     const state = migration();
     mockUseMigration.mockReturnValue(state);
     render(<MigrationTab />);
+    expect(screen.getByText('Discovery not started')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Run repository discovery for this connected Hub application to identify its technologies.',
+      ),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start discovery' }));
     await waitFor(() => expect(state.startDiscovery).toHaveBeenCalledTimes(1));
     expect(mockUseMigration).toHaveBeenCalledWith({ appId: 1 });
+  });
+
+  it('disables the discovery action while a Hub action is executing', () => {
+    mockUseMigration.mockReturnValue(migration({ isExecuting: true }));
+    render(<MigrationTab />);
+    expect(
+      screen.getByRole('button', { name: 'Start discovery' }),
+    ).toBeDisabled();
   });
 
   it('requires an explicit real profile choice and submits its numeric ID', async () => {
@@ -120,6 +158,9 @@ describe('MigrationTab', () => {
     render(<MigrationTab />);
     fireEvent.click(screen.getByRole('button', { name: 'Start discovery' }));
     await screen.findByText('Repository credentials are required');
+    expect(
+      screen.getByText('Unable to load or update Hub migration data'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start discovery' }));
     await waitFor(() => expect(state.startDiscovery).toHaveBeenCalledTimes(2));
     await waitFor(() =>
@@ -162,6 +203,14 @@ describe('MigrationTab', () => {
       mockUseMigration.mockReturnValue(migration({ phase: 'Path Selection' }));
       render(<MigrationTab />);
       expect(
+        screen.getByText('Analysis profile selection'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'An application architect can select an effective Hub analysis profile and start analysis.',
+        ),
+      ).toBeInTheDocument();
+      expect(
         screen.queryByRole('button', {
           name: /Start analysis|Run discovery|Refresh profiles/,
         }),
@@ -175,6 +224,9 @@ describe('MigrationTab', () => {
       entity: { ...entity, metadata: { name: 'unconnected' } },
     } as { entity: Entity });
     render(<MigrationTab />);
+    expect(
+      screen.getByText('No Hub application connected'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/konveyor.io\/application-id annotation/),
     ).toBeInTheDocument();
@@ -275,6 +327,9 @@ describe('MigrationTab', () => {
       screen.queryByRole('button', { name: 'Start analysis' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Waiting for Hub discovery results.',
+    );
   });
 
   it.each(['developer', 'unknown'] as const)(
@@ -303,8 +358,11 @@ describe('MigrationTab', () => {
     );
     render(<MigrationTab />);
     expect(screen.getByText(/91 · QuotaBlocked/)).toBeInTheDocument();
-    expect(screen.getByText('Ref: release')).toBeInTheDocument();
-    expect(screen.getByText('Path: services/inventory')).toBeInTheDocument();
+    expect(screen.getByText('release')).toBeInTheDocument();
+    expect(screen.getByText('services/inventory')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Waiting for Hub analysis results.',
+    );
   });
 
   it('does not present discovery as not started when task history cannot be loaded', () => {
