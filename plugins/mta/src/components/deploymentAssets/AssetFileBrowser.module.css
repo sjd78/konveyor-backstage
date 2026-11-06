@@ -1,0 +1,287 @@
+/*
+ * Copyright 2026 The Backstage Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * File browser: a directory tree beside a file preview. Everything uses BUI
+ * tokens so the two panes, the selection state and the preview read the same
+ * in light and dark themes.
+ */
+
+.browser {
+  display: grid;
+  grid-template-columns: minmax(13rem, 19rem) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--bui-border-1);
+  border-radius: var(--bui-radius-3);
+  overflow: hidden;
+}
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--bui-border-1);
+  background: var(--bui-bg-neutral-1);
+}
+
+.treeHeader {
+  flex: none;
+  padding: var(--bui-space-2) var(--bui-space-3);
+  border-bottom: 1px solid var(--bui-border-1);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--bui-space-2);
+  list-style: none;
+  overflow: auto;
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: var(--bui-space-1) 0 0 var(--bui-space-2);
+  list-style: none;
+}
+
+/*
+ * BUI Button centres its content. A file row and a group row run from the
+ * left edge, so the internal content wrapper fills the button instead.
+ */
+.group {
+  width: 100%;
+  min-height: 2rem;
+  padding: var(--bui-space-1) var(--bui-space-2);
+  font-weight: var(--bui-font-weight-bold);
+}
+
+.group :global(.bui-ButtonContent) {
+  justify-content: flex-start;
+  gap: var(--bui-space-2);
+  width: 100%;
+}
+
+.groupName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  flex: none;
+  font-weight: var(--bui-font-weight-regular);
+}
+
+.file {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 2.5rem;
+  padding: var(--bui-space-1) var(--bui-space-3) var(--bui-space-1)
+    var(--bui-space-2);
+  font-weight: var(--bui-font-weight-regular);
+  /* Keeps the focused row fully inside the tree when it only fits one row. */
+  scroll-margin-block: var(--bui-space-1);
+}
+
+.file :global(.bui-ButtonContent) {
+  justify-content: flex-start;
+  gap: var(--bui-space-2);
+  width: 100%;
+}
+
+.fileText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.fileName {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--bui-font-size-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileDir {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--bui-fg-secondary);
+  font-family: var(--bui-font-monospace);
+  font-size: var(--bui-font-size-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selection is a tinted row plus an accent bar, so it never reads as focus. */
+.file[aria-current='true'] {
+  background: var(--bui-bg-neutral-2);
+}
+
+.file[aria-current='true']:hover {
+  background: var(--bui-bg-neutral-2-hover);
+}
+
+.file[aria-current='true']::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  border-radius: var(--bui-radius-2) 0 0 var(--bui-radius-2);
+  background: var(--bui-accent-bg);
+  content: '';
+}
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.viewerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bui-space-3);
+  flex: none;
+  padding: var(--bui-space-2) var(--bui-space-3) var(--bui-space-2)
+    var(--bui-space-4);
+  border-bottom: 1px solid var(--bui-border-1);
+}
+
+.viewerTitle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.pathHeading {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--bui-font-regular);
+  font-size: var(--bui-font-size-3);
+  font-weight: var(--bui-font-weight-bold);
+  line-height: 1.4;
+}
+
+.path {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--bui-font-monospace);
+  font-size: var(--bui-font-size-3);
+  font-weight: var(--bui-font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provenance {
+  display: block;
+  max-width: 100%;
+}
+
+.copy {
+  flex: none;
+  margin-top: calc(var(--bui-space-1) * -1);
+}
+
+.code {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--bui-space-3) var(--bui-space-4);
+  overflow: auto;
+  background: var(--bui-bg-neutral-1);
+  font-family: var(--bui-font-monospace);
+  font-size: var(--bui-font-size-2);
+  line-height: 1.65;
+  tab-size: 2;
+}
+
+.code code {
+  font-family: inherit;
+}
+
+.lineNumber {
+  display: inline-block;
+  min-width: 2.5ch;
+  padding-right: var(--bui-space-3);
+  text-align: right;
+  user-select: none;
+  color: var(--bui-fg-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 50rem) {
+  .browser {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(7rem, 34%) minmax(0, 1fr);
+  }
+
+  .tree {
+    border-right: none;
+    border-bottom: 1px solid var(--bui-border-1);
+  }
+
+  .provenance {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .viewerHeader {
+    padding-inline: var(--bui-space-3);
+  }
+
+  .code {
+    padding: var(--bui-space-2) var(--bui-space-3);
+  }
+}
