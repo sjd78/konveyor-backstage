@@ -22,7 +22,7 @@ Adopted from [Andrej Karpathy's LLM coding guidelines](https://github.com/multic
 
 ### Surgical Changes
 
-- **Touch only what is necessary:** Do not reformat untouched files or rewrite working legacy code (e.g., prototype Material-UI v4 components).
+- **Touch only what is necessary:** Do not reformat untouched files or rewrite working code that is outside the task.
 - **Match existing style:** Follow the monorepo's ESLint and Prettier rules.
 - **Traceability:** Every edited line must trace directly to a verifiable goal.
 
@@ -94,6 +94,13 @@ This repository was created to run the **mainline version of Backstage** with th
   - `mtaEntityContent`: `EntityContentBlueprint.makeWithOverrides` mounting `/migration` on `Component` entities.
   - `mtaHomeWidget`: `HomePageWidgetBlueprint.make` mounting `mta-migration-cards` on the home page.
   - `mtaPage`: `PageBlueprint.make` mounting `/mta`.
+
+### Frontend UI conventions
+
+- Plugin UI uses `@backstage/ui` components and the shared primitives in `plugins/mta/src/components/shared/MtaUi.tsx`.
+- Styling lives in a CSS module next to the component and uses BUI tokens.
+- Material-UI v4 and `@backstage/core-components` remain only in components not yet migrated and are not used for new UI.
+- User-visible copy uses sentence case and the term "Hub".
 
 ---
 
