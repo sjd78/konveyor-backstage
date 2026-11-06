@@ -1,39 +1,44 @@
-import Box from '@material-ui/core/Box';
-import Link from '@material-ui/core/Link';
-import Typography from '@material-ui/core/Typography';
-import { useStyles } from './migrationTabStyles';
+import { Flex, Link, Text } from '@backstage/ui';
 import type { MigrationIssue } from '../../types';
+import styles from './IssueDetailPanel.module.css';
 
 export function IssueDetailPanel({ rowData }: { rowData: MigrationIssue }) {
-  const classes = useStyles();
   const links =
     rowData.links?.filter(link => /^https?:\/\//i.test(link.url)) ?? [];
   return (
-    <Box pl={4} pr={2} py={2} bgcolor="action.hover">
+    <Flex direction="column" gap="3">
       {rowData.problem && (
-        <div className={classes.detailSection}>
-          <Typography className={classes.detailLabel}>
+        <div className={styles.section}>
+          <Text as="h3" variant="body-medium" weight="bold">
             Rule description
-          </Typography>
-          <Typography variant="body2">{rowData.problem}</Typography>
+          </Text>
+          <Text as="p" color="secondary">
+            {rowData.problem}
+          </Text>
         </div>
       )}
       {rowData.message && (
-        <div className={classes.detailSection}>
-          <Typography className={classes.detailLabel}>Incident</Typography>
-          <Typography variant="body2">{rowData.message}</Typography>
+        <div className={styles.section}>
+          <Text as="h3" variant="body-medium" weight="bold">
+            Incident
+          </Text>
+          <Text as="p" color="secondary">
+            {rowData.message}
+          </Text>
         </div>
       )}
       {rowData.codeSnip && (
-        <Box component="pre" overflow="auto" style={{ whiteSpace: 'pre-wrap' }}>
+        <pre className={styles.code}>
           <code>{rowData.codeSnip}</code>
-        </Box>
+        </pre>
       )}
       {rowData.effort !== undefined && (
-        <Typography variant="body2">Rule effort: {rowData.effort}</Typography>
+        <Text as="p" variant="body-small">
+          Rule effort: {rowData.effort}
+        </Text>
       )}
       {links.length > 0 && (
-        <Box component="ul">
+        <ul className={styles.links}>
           {links.map(link => (
             <li key={link.url}>
               <Link href={link.url} target="_blank" rel="noopener noreferrer">
@@ -41,17 +46,17 @@ export function IssueDetailPanel({ rowData }: { rowData: MigrationIssue }) {
               </Link>
             </li>
           ))}
-        </Box>
+        </ul>
       )}
       {!rowData.problem &&
         !rowData.message &&
         !rowData.codeSnip &&
         rowData.effort === undefined &&
         links.length === 0 && (
-          <Typography variant="body2" color="textSecondary">
+          <Text as="p" color="secondary">
             No additional details were reported by Hub.
-          </Typography>
+          </Text>
         )}
-    </Box>
+    </Flex>
   );
 }
