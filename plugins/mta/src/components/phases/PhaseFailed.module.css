@@ -1,0 +1,12 @@
+/*
+ * Styles for the failed task screen. Every value comes from a BUI semantic
+ * token; app-level theme mapping owns the color values.
+ */
+.message {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.actions {
+  flex-wrap: wrap;
+}
