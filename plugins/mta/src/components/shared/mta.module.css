@@ -1,0 +1,208 @@
+/*
+ * Component-scoped styles for the MTA plugin. Every value comes from a BUI
+ * semantic token; app-level theme mapping owns the PatternFly color values.
+ */
+.card {
+  background: transparent;
+  border: 1px solid var(--bui-border-1);
+  min-width: 0;
+  height: 100%;
+}
+.sectionHeading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  min-width: 0;
+}
+.detailList {
+  display: flex;
+  flex-direction: column;
+}
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--bui-space-3);
+  padding-block: var(--bui-space-2);
+  border-bottom: 1px solid var(--bui-border-1);
+  overflow-wrap: anywhere;
+}
+.detailRow:last-child {
+  border-bottom: 0;
+}
+.detailLabel {
+  min-width: 0;
+}
+.detailValue {
+  margin-inline-start: auto;
+  text-align: end;
+  min-width: 0;
+  max-width: 100%;
+}
+/*
+ * Static status label. It used to be a BUI Tag, a React Aria grid cell that
+ * supplied these metrics but also added a role and a Tab stop. A status value
+ * is not a control, so the same layout is reproduced here without the widget.
+ */
+.tag {
+  display: flex;
+  width: fit-content;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bui-space-1);
+  height: 1.5rem;
+  padding-inline: var(--bui-space-2);
+  border-radius: var(--bui-radius-2);
+  color: var(--bui-fg-primary);
+  background: var(--bui-bg-neutral-2);
+  font-size: var(--bui-font-size-2);
+  font-weight: var(--bui-font-weight-regular);
+}
+.toneNeutral {
+  color: var(--bui-fg-primary);
+  background: var(--bui-bg-neutral-2);
+}
+.toneInfo {
+  color: var(--bui-announcement-fg-subdued);
+  background: var(--bui-announcement-bg-subdued);
+}
+.toneSuccess {
+  color: var(--bui-positive-fg-subdued);
+  background: var(--bui-positive-bg-subdued);
+}
+.toneWarning {
+  color: var(--bui-warning-fg-subdued);
+  background: var(--bui-warning-bg-subdued);
+}
+/*
+ * Major uses the second step of the PatternFly warning scale, the same pair
+ * `main` used for major (warning.main) and minor (warning.light). BUI 0.18
+ * exposes that stronger step as the solid warning background and foreground.
+ */
+.toneWarningEmphasis {
+  color: var(--bui-warning-fg);
+  background: var(--bui-warning-bg);
+}
+.toneDanger {
+  color: var(--bui-negative-fg-subdued);
+  background: var(--bui-negative-bg-subdued);
+}
+/*
+ * Page-level empty states follow main's composition: copy and illustration
+ * share a row on a wide tab, with the illustration above centered copy when the
+ * tab is too narrow to split. The container is the tab, not the viewport,
+ * because RHDH hosts the tab in a card beside the right rail at desktop widths.
+ */
+.emptyFrame {
+  width: 100%;
+  container-type: inline-size;
+}
+.empty,
+.emptyCompact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bui-space-4);
+  width: 100%;
+  text-align: center;
+}
+.emptyCompact {
+  padding: var(--bui-space-5);
+}
+.compactImage {
+  order: -1;
+  width: min(100%, 9rem);
+  height: auto;
+  max-height: 8rem;
+  object-fit: contain;
+}
+.emptyText {
+  display: flex;
+  grid-area: copy;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bui-space-3);
+  max-width: 34rem;
+  min-width: 0;
+}
+.emptyCompact > .emptyText {
+  flex: 0 0 auto;
+}
+.emptyImage {
+  grid-area: art;
+  order: -1;
+  width: min(100%, 14rem);
+  height: auto;
+}
+@container (min-width: 40rem) {
+  .empty {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'copy art';
+    align-items: start;
+    justify-items: stretch;
+    gap: var(--bui-space-8);
+    text-align: left;
+  }
+  .emptyText {
+    align-items: flex-start;
+    max-width: none;
+    padding-block: var(--bui-space-2);
+  }
+  .emptyImage {
+    order: 0;
+    width: 100%;
+    max-width: 44rem;
+    justify-self: end;
+  }
+}
+.taskProgress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-2);
+}
+@keyframes mtaProgressSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+.progress {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--bui-radius-1);
+  background: var(--bui-bg-neutral-2);
+}
+.progressIndicator {
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--bui-accent-bg);
+  animation: mtaProgressSlide 1.5s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progressIndicator {
+    animation: none;
+    inset-inline-start: 0;
+    width: 100%;
+    background: var(--bui-fg-secondary);
+  }
+}
+@media (max-width: 700px) {
+  .detailRow {
+    flex-direction: column;
+    gap: var(--bui-space-1);
+  }
+  .detailValue {
+    margin-inline-start: 0;
+    text-align: start;
+  }
+}
