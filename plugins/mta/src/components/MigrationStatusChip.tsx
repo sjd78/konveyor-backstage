@@ -13,27 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {
-  StatusOK,
-  StatusError,
-  StatusPending,
-} from '@backstage/core-components';
+import { StatusTag, type StatusTone } from './shared/MtaUi';
 import type { MigrationStatus } from '../types';
 
+const STATUS_TONE: Record<MigrationStatus, StatusTone> = {
+  'Not Started': 'neutral',
+  Discovery: 'info',
+  'Path Selection': 'info',
+  Analysis: 'info',
+  'Analysis Unavailable': 'danger',
+  Active: 'success',
+  Failed: 'danger',
+};
+
 export function MigrationStatusChip({ status }: { status: MigrationStatus }) {
-  switch (status) {
-    case 'Failed':
-      return <StatusError>{status}</StatusError>;
-    case 'Analysis Unavailable':
-      return <StatusError>{status}</StatusError>;
-    case 'Active':
-      return <StatusOK>{status}</StatusOK>;
-    case 'Discovery':
-    case 'Path Selection':
-    case 'Analysis':
-      return <StatusPending>{status}</StatusPending>;
-    case 'Not Started':
-    default:
-      return <StatusPending>{status}</StatusPending>;
-  }
+  return <StatusTag tone={STATUS_TONE[status]}>{status}</StatusTag>;
 }

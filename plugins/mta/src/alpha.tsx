@@ -24,8 +24,16 @@ import { mtaApiRef, MtaApiClient } from './api';
 import { Entity } from '@backstage/catalog-model';
 import { EntityContentBlueprint } from '@backstage/plugin-catalog-react/alpha';
 import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
+import {
+  FormFieldBlueprint,
+  createFormField,
+} from '@backstage/plugin-scaffolder-react/alpha';
 import { MigrationTabPage } from './components/MigrationTabPage';
 import { MtaHomeSection } from './components/MtaHomeCards';
+import {
+  MtaApplicationSourceField,
+  validateMtaApplicationSource,
+} from './components/MtaApplicationSourceField';
 import { rootRouteRef } from './routes';
 import { MigrationIcon } from './icons/MigrationIcon';
 
@@ -74,6 +82,24 @@ const mtaPage = PageBlueprint.make({
   },
 });
 
+/**
+ * The registration template's Application details step uses this field with
+ * `ui:field: MtaApplicationSource`. The field renders the catalog search and
+ * the repository entry, and the validator runs the same value contract plus
+ * one catalog lookup before the wizard lets the member continue.
+ */
+const mtaApplicationSourceField = FormFieldBlueprint.make({
+  name: 'application-source',
+  params: {
+    field: async () =>
+      createFormField({
+        name: 'MtaApplicationSource',
+        component: MtaApplicationSourceField,
+        validation: validateMtaApplicationSource,
+      }),
+  },
+});
+
 export const mtaPlugin = createFrontendPlugin({
   pluginId: 'mta',
   extensions: [
@@ -81,6 +107,7 @@ export const mtaPlugin = createFrontendPlugin({
     mtaEntityContent,
     mtaHomeWidget,
     mtaPage,
+    mtaApplicationSourceField,
   ] as ExtensionDefinition[],
   routes: {
     root: rootRouteRef,
