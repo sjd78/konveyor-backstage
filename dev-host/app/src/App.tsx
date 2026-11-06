@@ -1,5 +1,6 @@
 import { createApp } from '@backstage/frontend-defaults';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
+import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
 import mtaPlugin from '@internal/backstage-plugin-mta';
 import { navModule } from './modules/nav';
 import { homeModule } from './modules/home';
@@ -9,6 +10,7 @@ import authDevUsersModule from '@internal/backstage-plugin-auth-dev-users-fronte
 export default createApp({
   features: [
     catalogPlugin,
+    scaffolderPlugin,
     mtaPlugin,
     navModule,
     homeModule,

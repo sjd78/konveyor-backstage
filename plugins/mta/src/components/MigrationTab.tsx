@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import Box from '@material-ui/core/Box';
-import Button from '@material-ui/core/Button';
-import { EmptyState, Progress, WarningPanel } from '@backstage/core-components';
+import { Alert, Button, Flex, Skeleton } from '@backstage/ui';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { usePersonaRole } from '../hooks/usePersonaRole';
 import { useKonveyorMigration } from '../hooks/useKonveyorMigration';
 import { isDiscoveryTask } from '../hooks/migrationState';
+import { EmptyState } from './shared/MtaUi';
 import { PhaseNotStarted } from './phases/PhaseNotStarted';
 import { PhaseDiscovery } from './phases/PhaseDiscovery';
 import { PhasePathSelection } from './phases/PhasePathSelection';
@@ -59,42 +58,60 @@ export function MigrationTab() {
 
   if (annotation !== undefined && !validAnnotation) {
     return (
-      <WarningPanel
-        severity="error"
+      <Alert
+        status="danger"
+        icon
         title="Invalid Hub application connection"
-        message="Set konveyor.io/application-id to a positive numeric application ID from Konveyor Hub. The current annotation is not valid."
+        description="Set konveyor.io/application-id to a positive numeric application ID from Konveyor Hub. The current annotation is not valid."
       />
     );
   }
-  if (loading || personaLoading) return <Progress />;
+  if (loading || personaLoading) {
+    return (
+      <Flex
+        direction="column"
+        gap="4"
+        role="status"
+        aria-label="Loading migration"
+      >
+        <Skeleton width="100%" height={64} />
+        <Skeleton width="100%" height={320} />
+      </Flex>
+    );
+  }
   if (!appId) {
     return <PhaseNotStarted persona={persona} />;
   }
 
   const displayError = actionFailure || error;
   const errorPanel = displayError && (
-    <Box mb={2}>
-      <WarningPanel
-        severity="error"
+    <Flex direction="column" gap="3" mb="4">
+      <Alert
+        status="danger"
+        icon
         title="Unable to load or update Hub migration data"
-        message={displayError.message}
+        description={displayError.message}
       />
-      <Button
-        onClick={() => {
-          void execute(refresh);
-        }}
-      >
-        Retry loading Hub data
-      </Button>
-    </Box>
+      <Flex gap="2">
+        <Button
+          variant="tertiary"
+          onPress={() => {
+            void execute(refresh);
+          }}
+        >
+          Retry loading Hub data
+        </Button>
+      </Flex>
+    </Flex>
   );
   if (!application)
     return (
       errorPanel || (
-        <WarningPanel
-          severity="error"
+        <Alert
+          status="danger"
+          icon
           title="Hub application unavailable"
-          message="Check the component's konveyor.io/application-id annotation and the application's availability in Hub."
+          description="Check the component's konveyor.io/application-id annotation and the application's availability in Hub."
         />
       )
     );
@@ -151,7 +168,6 @@ export function MigrationTab() {
           <EmptyState
             title="Analysis profile selection"
             description="An application architect can select an effective Hub analysis profile and start analysis."
-            missing="content"
           />
         );
         break;
@@ -170,16 +186,18 @@ export function MigrationTab() {
         break;
       case 'Analysis Unavailable':
         content = (
-          <Box mb={2}>
-            <WarningPanel
-              severity="warning"
+          <Flex direction="column" gap="3" mb="4">
+            <Alert
+              status="warning"
+              icon
               title="Analysis results are not available"
-              message="The Hub task succeeded, but no persisted analysis is available. Refresh after Hub stores the results. An application architect can select a profile to run analysis again."
+              description="The Hub task succeeded, but no persisted analysis is available. Refresh after Hub stores the results. An application architect can select a profile to run analysis again."
             />
-            <Box mt={2} display="flex" style={{ gap: 8 }}>
+            <Flex gap="2">
               <Button
-                disabled={isExecuting}
-                onClick={() => {
+                variant="tertiary"
+                isDisabled={isExecuting}
+                onPress={() => {
                   void execute(refresh);
                 }}
               >
@@ -187,14 +205,15 @@ export function MigrationTab() {
               </Button>
               {isArchitect && (
                 <Button
-                  disabled={isExecuting}
-                  onClick={() => setChoosingProfile(true)}
+                  variant="tertiary"
+                  isDisabled={isExecuting}
+                  onPress={() => setChoosingProfile(true)}
                 >
                   Select analysis profile
                 </Button>
               )}
-            </Box>
-          </Box>
+            </Flex>
+          </Flex>
         );
         break;
       case 'Active':
@@ -235,10 +254,11 @@ export function MigrationTab() {
         break;
       default:
         content = (
-          <WarningPanel
-            severity="warning"
+          <Alert
+            status="warning"
+            icon
             title="Unsupported migration state"
-            message="Refresh Hub data to load the current task and findings."
+            description="Refresh Hub data to load the current task and findings."
           />
         );
     }
@@ -248,20 +268,24 @@ export function MigrationTab() {
     <>
       {errorPanel}
       {issuesError && (
-        <Box mb={2}>
-          <WarningPanel
-            severity="error"
+        <Flex direction="column" gap="3" mb="4">
+          <Alert
+            status="danger"
+            icon
             title="Unable to load findings"
-            message={issuesError.message}
+            description={issuesError.message}
           />
-          <Button
-            onClick={() => {
-              void execute(refresh);
-            }}
-          >
-            Retry loading findings
-          </Button>
-        </Box>
+          <Flex gap="2">
+            <Button
+              variant="tertiary"
+              onPress={() => {
+                void execute(refresh);
+              }}
+            >
+              Retry loading findings
+            </Button>
+          </Flex>
+        </Flex>
       )}
       {content}
     </>

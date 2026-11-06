@@ -16,6 +16,21 @@
 export { mtaPlugin, mtaPlugin as default } from './alpha';
 export { mtaApiRef, MtaApiClient } from './api';
 export type { MtaApi } from './api';
+export {
+  ASSET_BRANCH_NAME,
+  deploymentAssetsApiRef,
+} from './api/deploymentAssets';
+export type {
+  AssetCommitResult,
+  AssetGenerator,
+  AssetRenderResult,
+  CommitDeploymentAssetsRequest,
+  DeploymentAssetApplication,
+  DeploymentAssetsApi,
+  DeploymentAssetRepository,
+  RenderedAsset,
+  RenderDeploymentAssetsRequest,
+} from './api/deploymentAssets';
 export { useKonveyorMigration } from './hooks/useKonveyorMigration';
 export type {
   UseKonveyorMigrationResult,

@@ -13,22 +13,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { Palette } from '@material-ui/core/styles/createPalette';
-import type { IssueSeverity } from './types';
-
-export function severityColor(
-  severity: IssueSeverity,
-  palette: Palette,
-): string {
-  return (
-    {
-      critical: palette.error.main,
-      major: palette.warning.main,
-      minor: palette.warning.light,
-      info: palette.info.main,
-    } as Record<IssueSeverity, string>
-  )[severity];
-}
-
 export const MTA_REGISTER_TEMPLATE_PATH =
   '/create/templates/default/mta-register-application';
