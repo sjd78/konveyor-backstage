@@ -47,6 +47,9 @@
     "scaffolder",
     "sdickers",
     "SSOT",
-    "unsubmitted"
+    "unsubmitted",
+    "oneline",
+    "toplevel",
+    "worktrees"
   ]
 }
