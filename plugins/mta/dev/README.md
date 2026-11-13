@@ -3,9 +3,10 @@
 Every state in the state catalog, rendered through the real plugin components
 with fixture Hub, catalog and identity APIs. No Hub and no backend are needed.
 
+From the repository root:
+
 ```sh
-cd plugins/mta
-yarn start
+yarn gallery
 ```
 
 `dev/index.tsx` redirects `/` to `/gallery`.
