@@ -109,6 +109,8 @@ yarn build:backend
 
 Each package has a committed `knip-report.md` listing unused or unlisted dependencies and exports. `yarn check` fails when a report is out of date; after changing dependencies or exports, run `yarn build:knip-reports` and commit the updated reports.
 
+Source file copyright and license notice header comments (`/* Copyright ... */`) are discouraged; do not include them when adding or modifying files.
+
 The backend build also builds the bundled frontend. See [Phase 2 user stories](docs/phase-2-user-stories.md) for exercised interactions and future user-versus-system authentication requirements.
 
 For the original prototype requirements, parity gaps, and six recorded walkthroughs, see [RHDH story comparison](docs/rhdh-story-comparison.md). Reusable Hub application request bodies are in [`dev-host/data/seeds/`](dev-host/data/seeds/); only the `live-seeded` scenario provisions them, and nothing analyzes them automatically.
