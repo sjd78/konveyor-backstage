@@ -1,0 +1,129 @@
+/*
+ * Home card styles. Every value comes from a BUI semantic token. The card
+ * frame repeats the shared card rule so the home widget matches the sections
+ * on the same page without reaching into another component's module.
+ */
+.card {
+  background: transparent;
+  border: 1px solid var(--bui-border-1);
+  min-width: 0;
+  height: 100%;
+}
+.cardHeader {
+  padding: var(--bui-space-4);
+  border-bottom: 1px solid var(--bui-border-1);
+}
+.cardBody {
+  min-height: 0;
+  padding: var(--bui-space-4);
+}
+/*
+ * The column layout lives inside the body rather than on it, because BUI's
+ * CardBody inserts a sticky scroll shadow as a pseudo-element that would
+ * become a flex item and add a gap above the first row.
+ */
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-3);
+}
+.cardContentCentered {
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.list,
+.skeletonList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list > li + li,
+.skeletonList > li + li {
+  border-top: 1px solid var(--bui-border-1);
+}
+.appLink {
+  display: flex;
+  gap: var(--bui-space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--bui-space-2);
+  border-radius: var(--bui-radius-2);
+  text-decoration: none;
+  color: inherit;
+}
+.appLink:hover {
+  background: var(--bui-bg-neutral-1-hover);
+}
+.appText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  min-width: 0;
+}
+.appName {
+  overflow-wrap: anywhere;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bui-space-1);
+}
+.statusIcon {
+  flex: none;
+}
+.statusNeutral {
+  color: var(--bui-fg-secondary);
+}
+.statusInfo {
+  color: var(--bui-fg-announcement);
+}
+.statusWarning {
+  color: var(--bui-fg-warning);
+}
+.statusDanger {
+  color: var(--bui-fg-negative);
+}
+/* Card empty states: balance the message below the card title and avoid
+   orphans in the centered copy at narrow widths. */
+.card h3 {
+  text-wrap: balance;
+}
+.card p {
+  text-wrap: pretty;
+}
+.appCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bui-space-1);
+}
+.appArrow {
+  flex: none;
+  color: var(--bui-fg-secondary);
+}
+.cardActions {
+  display: flex;
+}
+.skeletonRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bui-space-3);
+  padding: var(--bui-space-2);
+}
+.skeletonText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+}
+.skeletonStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--bui-space-1);
+}
+.skeletonIcon,
+.skeletonArrow {
+  flex: none;
+}
