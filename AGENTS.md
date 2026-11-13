@@ -25,6 +25,7 @@ Adopted from [Andrej Karpathy's LLM coding guidelines](https://github.com/multic
 - **Touch only what is necessary:** Do not reformat untouched files or rewrite working code that is outside the task.
 - **Match existing style:** Follow the monorepo's ESLint and Prettier rules.
 - **Traceability:** Every edited line must trace directly to a verifiable goal.
+- **No copyright notice headers:** Do not add copyright or license notice headers (`/* Copyright ... */`) to source files. They are discouraged in this repository.
 
 ### Goal-Driven Execution
 
@@ -159,3 +160,6 @@ Each package's `knip-report.md` is committed. After changing dependencies or exp
 
 4. **Development Host Paths:**
    Catalog file locations in `dev-host/app-config.yaml` are relative to the backend process working directory, `dev-host/backend` (e.g. `../data/catalog/org.yaml`). MTA Components come only from the generated `dev-host/.generated/catalog.yaml`; edit `dev-host/start/` or `dev-host/data/`, never the generated file.
+
+5. **Copyright and License Headers:**
+   Copyright and license notice headers on source files are discouraged. Do not add boilerplate header comments (`/* Copyright ... */`) to new or modified files.
