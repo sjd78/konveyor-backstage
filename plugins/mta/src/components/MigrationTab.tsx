@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Flex, Skeleton } from '@backstage/ui';
+import { Alert, Box, Button, Flex, Skeleton } from '@backstage/ui';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { usePersonaRole } from '../hooks/usePersonaRole';
 import { useKonveyorMigration } from '../hooks/useKonveyorMigration';
@@ -85,24 +85,23 @@ export function MigrationTab() {
 
   const displayError = actionFailure || error;
   const errorPanel = displayError && (
-    <Flex direction="column" gap="3" mb="4">
+    <Box mb="4">
       <Alert
         status="danger"
         icon
         title="Unable to load or update Hub migration data"
         description={displayError.message}
+        mb="3"
       />
-      <Flex gap="2">
-        <Button
-          variant="tertiary"
-          onPress={() => {
-            void execute(refresh);
-          }}
-        >
-          Retry loading Hub data
-        </Button>
-      </Flex>
-    </Flex>
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          void execute(refresh);
+        }}
+      >
+        Retry loading Hub data
+      </Button>
+    </Box>
   );
   if (!application)
     return (
@@ -268,24 +267,23 @@ export function MigrationTab() {
     <>
       {errorPanel}
       {issuesError && (
-        <Flex direction="column" gap="3" mb="4">
+        <Box mb="4">
           <Alert
             status="danger"
             icon
             title="Unable to load findings"
             description={issuesError.message}
+            mb="3"
           />
-          <Flex gap="2">
-            <Button
-              variant="tertiary"
-              onPress={() => {
-                void execute(refresh);
-              }}
-            >
-              Retry loading findings
-            </Button>
-          </Flex>
-        </Flex>
+          <Button
+            variant="tertiary"
+            onPress={() => {
+              void execute(refresh);
+            }}
+          >
+            Retry loading findings
+          </Button>
+        </Box>
       )}
       {content}
     </>
