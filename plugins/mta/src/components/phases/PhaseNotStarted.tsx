@@ -1,6 +1,6 @@
-import Button from '@material-ui/core/Button';
-import { EmptyState } from '@backstage/core-components';
+import { Button } from '@backstage/ui';
 import type { PersonaRole } from '../../hooks/usePersonaRole';
+import { EmptyState } from '../shared/MtaUi';
 
 export function PhaseNotStarted({
   persona,
@@ -18,7 +18,6 @@ export function PhaseNotStarted({
       <EmptyState
         title="No Hub application connected"
         description="Register this application in Konveyor Hub, then set this component's konveyor.io/application-id annotation to its numeric Hub application ID. In development, restart the catalog snapshot after registering the Hub application."
-        missing="content"
       />
     );
   }
@@ -34,16 +33,14 @@ export function PhaseNotStarted({
       action={
         persona === 'architect' && onStartDiscovery ? (
           <Button
-            variant="contained"
-            color="primary"
-            disabled={isExecuting}
-            onClick={onStartDiscovery}
+            variant="primary"
+            isDisabled={isExecuting}
+            onPress={onStartDiscovery}
           >
             Start discovery
           </Button>
         ) : undefined
       }
-      missing="content"
     />
   );
 }
