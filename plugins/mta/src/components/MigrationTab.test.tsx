@@ -327,6 +327,9 @@ describe('MigrationTab', () => {
       screen.queryByRole('button', { name: 'Start analysis' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Waiting for Hub discovery results.',
+    );
   });
 
   it.each(['developer', 'unknown'] as const)(
@@ -355,8 +358,11 @@ describe('MigrationTab', () => {
     );
     render(<MigrationTab />);
     expect(screen.getByText(/91 · QuotaBlocked/)).toBeInTheDocument();
-    expect(screen.getByText('Ref: release')).toBeInTheDocument();
-    expect(screen.getByText('Path: services/inventory')).toBeInTheDocument();
+    expect(screen.getByText('release')).toBeInTheDocument();
+    expect(screen.getByText('services/inventory')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Waiting for Hub analysis results.',
+    );
   });
 
   it('does not present discovery as not started when task history cannot be loaded', () => {
