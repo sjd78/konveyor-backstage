@@ -1,0 +1,51 @@
+/*
+ * Findings card. The pane is the query container for the detail panel, which
+ * stays pinned to the visible edge when the table scrolls horizontally.
+ */
+.tablePane {
+  min-width: 0;
+  width: 100%;
+  container-type: inline-size;
+}
+.search {
+  max-width: 20rem;
+  width: 100%;
+}
+.issueTable {
+  min-width: 0;
+  width: 100%;
+}
+.issueLocation {
+  display: block;
+  font-family: var(--bui-font-monospace);
+  text-wrap: pretty;
+}
+.issueDescription {
+  display: block;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+/*
+ * The detail row is a real table row so column alignment and the table
+ * semantics stay intact; the cell spans every column.
+ */
+.detailCell {
+  padding: 0;
+  overflow: visible;
+  background: var(--bui-bg-neutral-1);
+}
+/*
+ * Below the table's minimum width the detail cell is wider than the scroll
+ * container. Pin the panel to the visible left edge and cap it to the pane so
+ * the text stays readable while the row scrolls horizontally.
+ */
+.detailPanel {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-4);
+  max-width: 100cqw;
+  padding: var(--bui-space-5) var(--bui-space-4);
+  border-top: 1px solid var(--bui-border-1);
+}

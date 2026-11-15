@@ -1,12 +1,10 @@
-import Box from '@material-ui/core/Box';
-import Button from '@material-ui/core/Button';
-import Typography from '@material-ui/core/Typography';
-import AutorenewIcon from '@material-ui/icons/Autorenew';
-import { InfoCard, Table, TableColumn } from '@backstage/core-components';
-import { SeverityChip } from '../shared/SeverityChip';
-import { IssueDetailPanel } from '../shared/IssueDetailPanel';
+import { Button, Text } from '@backstage/ui';
+import { RiRefreshLine } from '@remixicon/react';
+import { EmptyState } from '../shared/MtaUi';
+import { FindingsTable } from './FindingsTable';
 import type { KonveyorApplication } from '../../api/types';
 import type { MigrationIssue, Persona } from '../../types';
+import styles from './PhaseActive.module.css';
 
 export interface PhaseActiveProps {
   app: KonveyorApplication;
@@ -15,26 +13,6 @@ export interface PhaseActiveProps {
   onRunAnalysis?: () => void;
 }
 
-const issueColumns: TableColumn<MigrationIssue>[] = [
-  {
-    title: 'Severity',
-    field: 'severity',
-    render: row => <SeverityChip severity={row.severity} />,
-  },
-  {
-    title: 'Location',
-    render: row => (
-      <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
-        {row.file
-          ? `${row.file}${row.line !== undefined ? `:${row.line}` : ''}`
-          : 'No source location reported'}
-      </Typography>
-    ),
-  },
-  { title: 'Category', field: 'category' },
-  { title: 'Finding', field: 'description' },
-];
-
 export function PhaseActive({
   app,
   issues,
@@ -42,43 +20,35 @@ export function PhaseActive({
   onRunAnalysis,
 }: PhaseActiveProps) {
   return (
-    <>
-      <Box
-        mb={2}
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <Typography variant="h6">Analysis findings for {app.name}</Typography>
-        {persona === 'architect' && onRunAnalysis && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AutorenewIcon />}
-            onClick={onRunAnalysis}
-          >
-            Run analysis
-          </Button>
-        )}
-      </Box>
+    <div className={styles.stack}>
+      <div className={styles.header}>
+        <Text as="h2" variant="title-small" className={styles.title}>
+          Analysis findings for {app.name}
+        </Text>
+        {/*
+         * The actions keep their own container so a later change can add an
+         * action next to "Run analysis" without touching the findings table.
+         */}
+        <div className={styles.actions}>
+          {persona === 'architect' && onRunAnalysis && (
+            <Button
+              variant="secondary"
+              iconStart={<RiRefreshLine />}
+              onPress={onRunAnalysis}
+            >
+              Run analysis
+            </Button>
+          )}
+        </div>
+      </div>
       {issues.length === 0 ? (
-        <InfoCard title="No findings reported">
-          <Typography variant="body2">
-            The latest Hub analysis reported no findings. This does not mark the
-            migration complete.
-          </Typography>
-        </InfoCard>
-      ) : (
-        <Table
-          title={`${issues.length} analysis finding${
-            issues.length === 1 ? '' : 's'
-          }`}
-          columns={issueColumns}
-          data={issues}
-          options={{ paging: issues.length > 10, pageSize: 10, search: true }}
-          detailPanel={({ rowData }) => <IssueDetailPanel rowData={rowData} />}
+        <EmptyState
+          title="No findings reported"
+          description="The latest Hub analysis reported no findings. This does not mark the migration complete."
         />
+      ) : (
+        <FindingsTable issues={issues} />
       )}
-    </>
+    </div>
   );
 }
