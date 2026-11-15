@@ -14,6 +14,11 @@ hack/pr-worktree.sh info 6
 cd ~/projects/wt_konveyor-backstage/pr-6
 # In agent: run /skill:pr-evaluation
 
+# Push changes back to the PR remote branch (from inside the worktree)
+hack/pr-push.sh
+# Or test with a dry run:
+hack/pr-push.sh --dry-run
+
 # Tear down when done (from inside worktree or from main repo)
 hack/pr-worktree.sh teardown 6
 
