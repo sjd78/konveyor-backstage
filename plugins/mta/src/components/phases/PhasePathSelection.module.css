@@ -1,0 +1,54 @@
+/*
+ * Analysis profile selection. BUI owns the radio group, the radio indicator and
+ * every interaction state; this module only adds the card surface around each
+ * option and the static tag list.
+ */
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bui-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* The small BUI Tag metrics, reproduced for a list entry: a static value is a
+   list item, not the focusable TagGroup cell. */
+.tagList > li {
+  display: flex;
+  width: fit-content;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bui-space-1);
+  height: 26px;
+  padding-inline: var(--bui-space-2);
+  border-radius: var(--bui-radius-2);
+  color: var(--bui-fg-primary);
+  background: var(--bui-bg-neutral-2);
+  font-size: var(--bui-font-size-1);
+  font-weight: var(--bui-font-weight-regular);
+}
+/* A selectable path card. The indicator sits on the first text line, so the
+   card aligns the radio with the top of a multi-line label. */
+.pathOption {
+  width: 100%;
+  align-items: flex-start;
+  padding: var(--bui-space-3) var(--bui-space-4);
+  border: 1px solid var(--bui-border-1);
+  border-radius: var(--bui-radius-3);
+}
+.pathOption::before {
+  margin-top: 0.15rem;
+}
+.pathOption[data-selected] {
+  border-color: var(--bui-accent-bg);
+  background: color-mix(
+    in srgb,
+    var(--bui-accent-bg) 5%,
+    var(--bui-bg-neutral-1)
+  );
+}
+.pathOption[data-focus-visible] {
+  outline: 2px solid var(--bui-ring);
+  outline-offset: 2px;
+}
