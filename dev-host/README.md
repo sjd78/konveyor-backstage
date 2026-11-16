@@ -49,6 +49,13 @@ the `--scenario` flag or the last saved choice is used; the default is `live`.
 No browser tab opens on start. To open one again, set `BROWSER` in your shell or
 `.env`: an empty value uses the system default browser, or give a browser name.
 
+## Registration template
+
+`/create` serves the scaffolder pages, including the MTA template in
+`data/catalog/konveyor/mta-template.yaml`. The template registers the repository
+of an existing catalog application, or a Git repository, with the in-memory mock
+Hub, so both onboarding paths work without a live Hub.
+
 ## Adding a scenario
 
 Add an entry to `start/scenarios.mjs` with an `id`, `label`, `description`, and a
