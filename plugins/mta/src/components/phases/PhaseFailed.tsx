@@ -1,5 +1,6 @@
-import { Alert, Button, Flex, Text } from '@backstage/ui';
+import { Alert, Button, Flex, Link, Text } from '@backstage/ui';
 import type { KonveyorTask } from '../../api/types';
+import { useMtaConfig } from '../../config/useMtaConfig';
 import { DetailList, DetailRow, Section } from '../shared/MtaUi';
 import styles from './PhaseFailed.module.css';
 
@@ -12,6 +13,28 @@ export interface PhaseFailedProps {
   onSelectProfile?: () => void;
 }
 
+/**
+ * The support contact a deployment configures under `mta.support`. With a
+ * name, the name is the link text so the screen reads as a person to contact;
+ * with only an email, the address is both the text and the target. With
+ * neither value the screen says nothing, as it did before the setting existed.
+ */
+function SupportContact({ name, email }: { name?: string; email?: string }) {
+  if (!email) {
+    return name ? (
+      <Text as="p" color="secondary">
+        If the problem continues, contact {name}.
+      </Text>
+    ) : null;
+  }
+  return (
+    <Text as="p" color="secondary">
+      If the problem continues, contact{' '}
+      <Link href={`mailto:${email}`}>{name ?? email}</Link>.
+    </Text>
+  );
+}
+
 export function PhaseFailed({
   task,
   error,
@@ -20,6 +43,7 @@ export function PhaseFailed({
   onRetry,
   onSelectProfile,
 }: PhaseFailedProps) {
+  const config = useMtaConfig();
   const details =
     task?.errors?.map(item => item.description).filter(Boolean) ?? [];
   return (
@@ -59,6 +83,7 @@ export function PhaseFailed({
           </Button>
         )}
       </Flex>
+      <SupportContact name={config.supportName} email={config.supportEmail} />
     </Flex>
   );
 }
