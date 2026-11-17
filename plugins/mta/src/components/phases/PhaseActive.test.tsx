@@ -1,13 +1,40 @@
+import type { ComponentProps } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { configApiRef, type ConfigApi } from '@backstage/core-plugin-api';
 import { mockApis, TestApiProvider } from '@backstage/frontend-test-utils';
 import { themes, UnifiedThemeProvider } from '@backstage/theme';
 import { MemoryRouter } from 'react-router-dom';
 import { PhaseActive } from './PhaseActive';
+import {
+  deploymentAssetsApiRef,
+  type DeploymentAssetsApi,
+} from '../../api/deploymentAssets';
+import {
+  ASSET_FIXTURE_GENERATORS,
+  renderAssetFixture,
+} from '../../../dev/fixtures/deploymentAssets';
 import type { MigrationIssue, Persona } from '../../types';
+
+/** The API pair shape `TestApiProvider` takes, for a list built at runtime. */
+type ApiPairs = ComponentProps<typeof TestApiProvider>['apis'];
+
+const LIVE_APPLICATION = { id: 1, name: 'Live application' };
+const LIVE_APPLICATION_FILES = renderAssetFixture(LIVE_APPLICATION.name, '');
 
 function devSpacesConfig(url: string): ConfigApi {
   return mockApis.config({ data: { mta: { devSpaces: { url } } } });
+}
+
+/** A deployment asset host for the findings screen, rendered by the fixture. */
+function deploymentAssetsApi(): DeploymentAssetsApi {
+  return {
+    renderDeploymentAssets: jest.fn().mockResolvedValue({
+      generators: ASSET_FIXTURE_GENERATORS,
+      assets: LIVE_APPLICATION_FILES,
+    }),
+    commitDeploymentAssets: jest.fn(),
+    getDeliveredAssets: jest.fn(),
+  };
 }
 
 function renderFindings(
@@ -15,12 +42,13 @@ function renderFindings(
   onRunAnalysis = jest.fn(),
   issues: MigrationIssue[] = [],
   config?: ConfigApi,
+  deploymentAssets?: DeploymentAssetsApi,
 ) {
   const findings = (
     <MemoryRouter>
       <UnifiedThemeProvider theme={themes.light}>
         <PhaseActive
-          app={{ id: 1, name: 'Live application' }}
+          app={LIVE_APPLICATION}
           issues={issues}
           persona={persona}
           onRunAnalysis={onRunAnalysis}
@@ -28,9 +56,16 @@ function renderFindings(
       </UnifiedThemeProvider>
     </MemoryRouter>
   );
+  const apis: unknown[] = [];
+  if (config) {
+    apis.push([configApiRef, config]);
+  }
+  if (deploymentAssets) {
+    apis.push([deploymentAssetsApiRef, deploymentAssets]);
+  }
   render(
-    config ? (
-      <TestApiProvider apis={[[configApiRef, config]]}>
+    apis.length ? (
+      <TestApiProvider apis={apis as unknown as ApiPairs}>
         {findings}
       </TestApiProvider>
     ) : (
@@ -133,5 +168,79 @@ describe('Dev Spaces link', () => {
     expect(
       screen.queryByRole('link', { name: 'Open in Dev Spaces' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('deployment assets entry', () => {
+  it('offers generation to architects when a host registers the API', () => {
+    renderFindings(
+      'architect',
+      jest.fn(),
+      [finding],
+      undefined,
+      deploymentAssetsApi(),
+    );
+    const button = screen.getByRole('button', {
+      name: 'Generate deployment assets',
+    });
+    expect(button.querySelector('svg')).toHaveAttribute('aria-hidden');
+    expect(
+      screen.getByRole('button', { name: 'Run analysis' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers no generation without a host implementation', () => {
+    renderFindings('architect', jest.fn(), [finding]);
+    expect(
+      screen.queryByRole('button', { name: 'Generate deployment assets' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each(['developer', 'unknown'] as const)(
+    'offers no generation to %s even with a host implementation',
+    persona => {
+      renderFindings(
+        persona,
+        jest.fn(),
+        [finding],
+        undefined,
+        deploymentAssetsApi(),
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Generate deployment assets' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('opens the deployment asset dialog for the application', async () => {
+    const deploymentAssets = deploymentAssetsApi();
+    renderFindings(
+      'architect',
+      jest.fn(),
+      [finding],
+      undefined,
+      deploymentAssets,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate deployment assets' }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Deployment assets for Live application',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: `Files (${LIVE_APPLICATION_FILES.length})`,
+      }),
+    ).toBeInTheDocument();
+    expect(deploymentAssets.renderDeploymentAssets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        application: expect.objectContaining({
+          id: 1,
+          name: 'Live application',
+        }),
+      }),
+    );
   });
 });

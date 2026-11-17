@@ -1,8 +1,16 @@
+import { useState } from 'react';
+import { useApiHolder } from '@backstage/core-plugin-api';
 import { Button, ButtonLink, Text } from '@backstage/ui';
-import { RiExternalLinkLine, RiRefreshLine } from '@remixicon/react';
+import {
+  RiExternalLinkLine,
+  RiFileCodeLine,
+  RiRefreshLine,
+} from '@remixicon/react';
 import { EmptyState } from '../shared/MtaUi';
 import { FindingsTable } from './FindingsTable';
+import { DeploymentAssetDialog } from '../deploymentAssets/DeploymentAssetDialog';
 import { useMtaConfig } from '../../config/useMtaConfig';
+import { deploymentAssetsApiRef } from '../../api/deploymentAssets';
 import type { KonveyorApplication } from '../../api/types';
 import type { MigrationIssue, Persona } from '../../types';
 import styles from './PhaseActive.module.css';
@@ -21,6 +29,12 @@ export function PhaseActive({
   onRunAnalysis,
 }: PhaseActiveProps) {
   const config = useMtaConfig();
+  const apiHolder = useApiHolder();
+  // Deployment assets need a host-supplied implementation. Without one the
+  // action stays absent instead of offering work nothing can do.
+  const deploymentAssetsApi = apiHolder.get(deploymentAssetsApiRef);
+  const canGenerateAssets = persona === 'architect' && !!deploymentAssetsApi;
+  const [assetsOpen, setAssetsOpen] = useState(false);
   return (
     <div className={styles.stack}>
       <div className={styles.header}>
@@ -32,6 +46,15 @@ export function PhaseActive({
          * beside "Run analysis" without touching the findings table.
          */}
         <div className={styles.actions}>
+          {canGenerateAssets && (
+            <Button
+              variant="secondary"
+              iconStart={<RiFileCodeLine aria-hidden />}
+              onPress={() => setAssetsOpen(true)}
+            >
+              Generate deployment assets
+            </Button>
+          )}
           {persona === 'architect' && onRunAnalysis && (
             <Button
               variant="secondary"
@@ -65,6 +88,13 @@ export function PhaseActive({
         />
       ) : (
         <FindingsTable issues={issues} />
+      )}
+      {canGenerateAssets && (
+        <DeploymentAssetDialog
+          open={assetsOpen}
+          onClose={() => setAssetsOpen(false)}
+          application={app}
+        />
       )}
     </div>
   );
