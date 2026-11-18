@@ -1,6 +1,6 @@
 ---
 name: pr-evaluation
-description: 'Rebase the current PR branch onto origin/main (or upstream/main if available), resolve any conflicts, verify the build, and summarize changes against the PR description and commit history for human review.'
+description: 'Rebase the current PR branch onto its target branch, resolve any conflicts, verify the build, and summarize changes against the PR description and commit history for human review.'
 ---
 
 # PR Evaluation and Rebase Skill
@@ -13,7 +13,7 @@ pr evaluation, review pr, evaluate pr, rebase pr, summarize pr, pr review, rebas
 
 Automates the evaluation, rebase, conflict resolution, and change summarization workflow for a checked-out GitHub Pull Request in a git worktree or local branch.
 
-**Use this skill when:** A PR branch has been checked out (for example via `hack/pr-worktree.sh checkout <pr>`) and needs to be rebased onto `origin/main` (or `upstream/main`), verified, and summarized against the PR description for human review.
+**Use this skill when:** A PR branch has been checked out (for example via `hack/pr-worktree.sh checkout <pr>`) and needs to be rebased onto its target branch, verified, and summarized against the PR description for human review.
 
 ---
 
@@ -28,6 +28,7 @@ Follow this 6-step process to evaluate and update the PR:
    - If present, parse:
      - `PR_NUMBER`: GitHub PR number
      - `PR_URL`: Link to PR
+     - `BASE_REMOTE`: Remote for the PR target repository
      - `BASE_BRANCH`: Target base branch (usually `main`)
      - `BRANCH_NAME`: Local tracking branch
      - `REMOTE_NAME`: Remote name for the PR head
@@ -37,9 +38,9 @@ Follow this 6-step process to evaluate and update the PR:
      gh pr view --json number,title,baseRefName,headRefName,url
      ```
 
-2. Retrieve the complete PR specification via GitHub CLI:
+2. Retrieve the complete PR specification using its URL, not its number alone (the same number can exist on different repositories):
    ```bash
-   gh pr view <PR_NUMBER> --json number,title,body,baseRefName,headRefName,headRepositoryOwner,url,author,commits
+   gh pr view <PR_URL> --json number,title,body,baseRefName,headRefName,headRepositoryOwner,url,author,commits
    ```
    Extract the PR description (`body`), title, author, and target base branch.
 
@@ -55,8 +56,8 @@ Follow this 6-step process to evaluate and update the PR:
 
 2. Determine base remote and branch:
 
-   - If `upstream` remote exists: base target is `upstream/<BASE_BRANCH>` (e.g. `upstream/main`).
-   - Otherwise: base target is `origin/<BASE_BRANCH>` (e.g. `origin/main`).
+   - Use `BASE_REMOTE` from `.worktree-info`, after confirming that it points to the repository in `PR_URL`.
+   - If `BASE_REMOTE` is unavailable, match the repository in `PR_URL` to a configured remote. Do not use the head remote or prefer `upstream` just because it exists. If no remote matches, stop before rebasing.
 
 3. Fetch the latest commits for the target base:
    ```bash
