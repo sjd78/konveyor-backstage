@@ -76,6 +76,23 @@ if [[ -z "$wt_remote_branch" ]]; then
   exit 1
 fi
 
+pr_url="$(get_meta PR_URL)"
+host="${pr_url#*://}"
+expected="${host%%/*}/$wt_head_repo"
+push_urls="$(git -C "$wt_root" remote get-url --push --all "$wt_remote")"
+url_pattern='^((https?|ssh|git)://)?([^/@]+@)?([a-zA-Z0-9.-]+)[:/]([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)$'
+while IFS= read -r push_url; do
+  if [[ -z "$wt_head_repo" || "$pr_url" != https://* || ! "${push_url%/}" =~ $url_pattern ]]; then
+    echo "Error: Cannot verify push destination for '$wt_remote'." >&2
+    exit 1
+  fi
+  destination="${BASH_REMATCH[4]}/${BASH_REMATCH[5]%.git}"
+  if [[ "${destination,,}" != "${expected,,}" ]]; then
+    echo "Error: Remote '$wt_remote' pushes to '$destination', not '$expected'." >&2
+    exit 1
+  fi
+done <<< "$push_urls"
+
 target_repo="${wt_head_repo:-${wt_remote_url:-$wt_remote}}"
 
 echo "Target repository: ${target_repo} (remote: ${wt_remote})"

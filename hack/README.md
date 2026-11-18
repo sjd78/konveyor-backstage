@@ -9,6 +9,8 @@ at a time.
 
 `pr-worktree.sh info` shows `BASE_REMOTE` (where the PR targets) and
 `REMOTE_NAME` (where the head branch lives and where `pr-push.sh` pushes).
+Checkout reuses a head remote only if it fetches from and pushes exclusively to
+the PR head repository. `pr-push.sh` checks every push URL again before pushing.
 
 ```bash
 # Check out PR 6 into ~/projects/wt_konveyor-backstage/pr-6

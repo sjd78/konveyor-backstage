@@ -67,7 +67,7 @@ repo_identity() {
 
 remote_repo() {
   local url
-  url="$(git config --get "remote.$1.url")" && repo_identity "$url"
+  url="$(git remote get-url "$1" 2>/dev/null)" && repo_identity "$url"
 }
 
 # Set the caller's base_remote and pr_json only after resolving a unique PR.
@@ -251,37 +251,42 @@ cmd_checkout() {
   fi
 
   # The PR's base and head may live on different remotes.
-  local remote_name="$base_remote" remote_url
-  if [[ "$is_fork" == "true" ]]; then
-    local head_url head_identity remote repo
-    local base_url
-    base_url="$(git config --get "remote.$base_remote.url")"
-    if [[ "$base_url" == ssh://* || "$base_url" == *@*:* && "$base_url" != *://* ]]; then
-      head_url="$(jq -r '.head.repo.ssh_url' <<< "$pr_json")"
-    else
-      head_url="$(jq -r '.head.repo.clone_url' <<< "$pr_json")"
-    fi
-    head_identity="$(repo_identity "$head_url")"
-    remote_name=""
-    for remote in $(git remote); do
-      if repo="$(remote_repo "$remote")" && [[ "${repo,,}" == "${head_identity,,}" ]]; then
-        remote_name="$remote"
-        break
-      fi
-    done
-    if [[ -z "$remote_name" ]]; then
-      remote_name="$head_owner"
-      if git remote get-url "$remote_name" &>/dev/null; then
-        remote_name="pr-${head_owner}-${head_repo##*/}"
-      fi
-      echo "==> Adding head remote '$remote_name' for '$head_repo'..."
-      git remote add "$remote_name" "$head_url"
-    fi
+  local remote_name remote_url
+  local head_url head_identity remote repo push_urls push_url
+  local base_url
+  base_url="$(git remote get-url "$base_remote")"
+  if [[ "$base_url" == ssh://* || "$base_url" == *@*:* && "$base_url" != *://* ]]; then
+    head_url="$(jq -r '.head.repo.ssh_url' <<< "$pr_json")"
+  else
+    head_url="$(jq -r '.head.repo.clone_url' <<< "$pr_json")"
   fi
+  head_identity="$(repo_identity "$head_url")"
+  remote_name=""
+  for remote in "$base_remote" $(git remote); do
+    repo="$(remote_repo "$remote")" && [[ "${repo,,}" == "${head_identity,,}" ]] || continue
+    push_urls="$(git remote get-url --push --all "$remote")" || continue
+    while IFS= read -r push_url; do
+      repo="$(repo_identity "$push_url")" && [[ "${repo,,}" == "${head_identity,,}" ]] || continue 2
+    done <<< "$push_urls"
+    remote_name="$remote"
+    break
+  done
+  if [[ -z "$remote_name" ]]; then
+    remote_name="$head_owner"
+    if git remote get-url "$remote_name" &>/dev/null; then
+      remote_name="pr-${head_owner}-${head_repo##*/}"
+    fi
+    echo "==> Adding head remote '$remote_name' for '$head_repo'..."
+    git remote add "$remote_name" "$head_url"
+  fi
+  push_urls="$(git remote get-url --push --all "$remote_name")"
+  while IFS= read -r push_url; do
+    if ! repo="$(repo_identity "$push_url")" || [[ "${repo,,}" != "${head_identity,,}" ]]; then
+      echo "Error: Remote '$remote_name' pushes outside '$head_identity'." >&2
+      return 1
+    fi
+  done <<< "$push_urls"
   remote_url="$(git remote get-url "$remote_name")"
-
-  echo "==> Fetching branch '$head_branch' from remote '$remote_name'..."
-  git fetch "$remote_name" "refs/heads/$head_branch"
 
   # Branch naming: pr/<owner>/<pr_num> for forks, pr/<pr_num> for local branches
   local branch_name
@@ -297,14 +302,16 @@ cmd_checkout() {
     exit 1
   fi
 
-  # Create or update local branch pointer
-  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
-    echo "==> Updating local branch '$branch_name' to point to '$remote_name/$head_branch'..."
-    git branch -f "$branch_name" FETCH_HEAD
-  else
-    echo "==> Creating local branch '$branch_name' from '$remote_name/$head_branch'..."
-    git branch "$branch_name" FETCH_HEAD
-  fi
+  local fetch_ref="refs/pr-worktree/fetch/$$"
+  (
+    trap 'git update-ref -d "$fetch_ref"' EXIT
+    git fetch --no-write-fetch-head "$remote_name" "+refs/heads/$head_branch:$fetch_ref"
+    if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+      git branch -f "$branch_name" "$fetch_ref"
+    else
+      git branch "$branch_name" "$fetch_ref"
+    fi
+  )
 
   # Create worktree
   mkdir -p "$(dirname "$wt_path")"
