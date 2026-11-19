@@ -238,6 +238,11 @@ cmd_checkout() {
     exit 1
   fi
 
+  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+    echo "Warning: Local branch '$branch_name' already exists. Delete it or run '$(basename "$0") teardown $pr_num' first." >&2
+    exit 1
+  fi
+
   # Create detached worktree and let `gh pr checkout` handle remotes, fetch, and branch tracking
   mkdir -p "$(dirname "$wt_path")"
   echo "==> Creating git worktree at '$wt_path'..."
