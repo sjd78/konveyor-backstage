@@ -211,7 +211,7 @@ After the rebase completes cleanly:
 
 ### 4. Human Decision & Next Steps
 
-- **To approve/merge:** Proceed through GitHub Web UI or `gh pr merge <NUMBER>`.
+- **To approve/merge:** Proceed through GitHub Web UI or `gh pr merge <PR_URL>`.
 - **To request changes:** Suggested review comment:
   > <Draft comment ready for PR review>
 - **To push rebased branch:**

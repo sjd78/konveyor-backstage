@@ -143,9 +143,9 @@ usage() {
 Usage: $(basename "$0") <command> [options]
 
 Commands:
-  checkout <pr>     Check out a PR into a dedicated worktree in \$WT_ROOT/pr-<number>,
-                    checking upstream first and then origin (or pass a full PR URL).
-                    Adds the fork remote if needed and runs yarn install --immutable.
+  checkout <pr>     Check out a PR into a dedicated worktree in \$WT_ROOT/pr-<number>
+                    via 'gh pr checkout' (checking upstream first, then origin, or
+                    pass a full PR URL), and run yarn install --immutable.
                     (Aliases: co, add)
 
   teardown [<pr>]   Tear down the worktree and remove the local PR branch.
@@ -224,29 +224,6 @@ cmd_checkout() {
     exit 1
   fi
 
-  # Reuse matching remote (origin, upstream, or existing fork), or add one for the fork
-  local remote_name remote_url
-  remote_name="$(find_remote_for_repo "$head_repo" || true)"
-  if [[ -z "$remote_name" ]]; then
-    remote_name="$head_owner"
-    if git remote get-url "$remote_name" &>/dev/null; then
-      remote_name="pr-${head_owner}-${head_repo##*/}"
-    fi
-    local base_url host
-    base_url="$(git remote get-url "$base_remote")"
-    host="${pr_url#*://}"
-    host="${host%%/*}"
-    if [[ "$base_url" == ssh://* || ( "$base_url" == *@*:* && "$base_url" != *://* ) ]]; then
-      remote_url="git@${host}:${head_repo}.git"
-    else
-      remote_url="https://${host}/${head_repo}.git"
-    fi
-    echo "==> Adding remote '$remote_name' -> $remote_url"
-    git remote add "$remote_name" "$remote_url"
-  else
-    remote_url="$(git remote get-url "$remote_name")"
-  fi
-
   # Branch naming: pr/<owner>/<pr_num> for forks, pr/<pr_num> for same-repo branches
   local branch_name
   if [[ "$is_fork" == "true" ]]; then
@@ -261,22 +238,22 @@ cmd_checkout() {
     exit 1
   fi
 
-  echo "==> Fetching '$head_branch' from '$remote_name'..."
-  git fetch "$remote_name" "+refs/heads/$head_branch:refs/remotes/$remote_name/$head_branch"
-
-  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
-    echo "==> Updating local branch '$branch_name' to '$remote_name/$head_branch'..."
-    git branch -f "$branch_name" "$remote_name/$head_branch"
-  else
-    echo "==> Creating local branch '$branch_name' from '$remote_name/$head_branch'..."
-    git branch "$branch_name" "$remote_name/$head_branch"
-  fi
-
-  # Create worktree
+  # Create detached worktree and let `gh pr checkout` handle remotes, fetch, and branch tracking
   mkdir -p "$(dirname "$wt_path")"
   echo "==> Creating git worktree at '$wt_path'..."
-  git worktree add "$wt_path" "$branch_name"
-  git -C "$wt_path" branch --set-upstream-to="$remote_name/$head_branch" "$branch_name" 2>/dev/null || true
+  git worktree add --detach "$wt_path"
+
+  echo "==> Checking out PR #${pr_num} via gh..."
+  if ! (cd "$wt_path" && gh pr checkout "$pr_url" -b "$branch_name" -f); then
+    git worktree remove --force "$wt_path" 2>/dev/null || rm -rf "$wt_path"
+    return 1
+  fi
+
+  local remote_name remote_url
+  remote_name="$(git -C "$wt_path" config --get "branch.${branch_name}.pushRemote" 2>/dev/null \
+    || git -C "$wt_path" config --get "branch.${branch_name}.remote" 2>/dev/null \
+    || echo "$base_remote")"
+  remote_url="$(git -C "$wt_path" remote get-url --push "$remote_name" 2>/dev/null || echo "$remote_name")"
 
   # Write .worktree-info metadata file
   cat << EOF > "$wt_path/.worktree-info"
