@@ -258,6 +258,10 @@ cmd_checkout() {
   remote_name="$(git -C "$wt_path" config --get "branch.${branch_name}.pushRemote" 2>/dev/null \
     || git -C "$wt_path" config --get "branch.${branch_name}.remote" 2>/dev/null \
     || echo "$base_remote")"
+  if [[ "$is_fork" == "true" && "$remote_name" == "$base_remote" ]]; then
+    local host="${pr_url#*://}"
+    remote_name="https://${host%%/*}/${head_repo}.git"
+  fi
   remote_url="$(git -C "$wt_path" remote get-url --push "$remote_name" 2>/dev/null || echo "$remote_name")"
 
   # Write .worktree-info metadata file
