@@ -20,13 +20,14 @@ get_main_repo_root() {
   echo "$root"
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAIN_REPO_ROOT="$(get_main_repo_root)"
 REPO_NAME="$(basename "$MAIN_REPO_ROOT")"
 
 # Base worktree root defaults to ~/projects/wt_<repo_name> and can be overridden via WT_ROOT
 WT_ROOT="${WT_ROOT:-$HOME/projects/wt_${REPO_NAME}}"
 PR_NUMBER_PATTERN='^([pP][rR]-?)?0*([1-9][0-9]*)$'
-PR_URL_PATTERN='^(https?://[a-zA-Z0-9.-]+/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)/pull/0*([1-9][0-9]*)/?([?#].*)?$'
+PR_URL_PATTERN='^(https?://[^/]+/([^/]+/[^/]+))/pull/0*([1-9][0-9]*)([/?#].*)?$'
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -46,105 +47,91 @@ check_prerequisites() {
 }
 
 extract_pr_number() {
-  if [[ "$1" =~ $PR_NUMBER_PATTERN || "$1" =~ $PR_URL_PATTERN ]]; then
+  if [[ "$1" =~ $PR_NUMBER_PATTERN ]]; then
     printf '%s\n' "${BASH_REMATCH[2]}"
+  elif [[ "$1" =~ $PR_URL_PATTERN ]]; then
+    printf '%s\n' "${BASH_REMATCH[3]}"
   else
     echo "Error: Expected a PR number or GitHub PR URL, got '$1'." >&2
     return 1
   fi
 }
 
-# Normalize HTTPS, SSH, and SCP-style URLs to host/owner/repo for comparisons.
-repo_identity() {
-  local url="${1%/}"
-  local pattern='^((https?|ssh|git)://)?([^/@]+@)?([a-zA-Z0-9.-]+)[:/]([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)$'
-  if [[ "$url" =~ $pattern ]]; then
-    printf '%s/%s\n' "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]%.git}"
+remote_slug() {
+  local url
+  url="$(git remote get-url "$1" 2>/dev/null)" || return 1
+  url="${url%.git}"
+  url="${url%/}"
+  if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
   else
     return 1
   fi
 }
 
-remote_repo() {
-  local url
-  url="$(git remote get-url "$1" 2>/dev/null)" && repo_identity "$url"
+find_remote_for_repo() {
+  local target="$1" remote slug
+  for remote in upstream origin $(git remote); do
+    slug="$(remote_slug "$remote" || true)"
+    if [[ -n "$slug" && "${slug,,}" == "${target,,}" ]]; then
+      printf '%s\n' "$remote"
+      return 0
+    fi
+  done
+  return 1
 }
 
-# Set the caller's base_remote and pr_json only after resolving a unique PR.
+# Resolve PR metadata with priority: explicit URL > upstream > origin.
+# Populates caller's base_remote, base_repo, and pr_json.
 resolve_pr() {
-  local pr_input="$1" pr_num="$2" prefer_upstream="$3"
-  local target_repo="" remote repo previous_repo="" result
+  local pr_input="$1" pr_num="$2"
+  local fields="number,title,headRepository,headRepositoryOwner,headRefName,baseRefName,isCrossRepository,url"
+
   if [[ "$pr_input" =~ $PR_URL_PATTERN ]]; then
-    target_repo="$(repo_identity "${BASH_REMATCH[1]}")"
+    local canonical_url="${BASH_REMATCH[1]}/pull/${BASH_REMATCH[3]}"
+    base_repo="${BASH_REMATCH[2]}"
+    if ! pr_json="$(gh pr view "$canonical_url" --json "$fields")"; then
+      return 1
+    fi
+    base_remote="$(find_remote_for_repo "$base_repo" || true)"
+    if [[ -z "$base_remote" ]]; then
+      echo "Error: No configured remote matches target repository '$base_repo'." >&2
+      return 1
+    fi
+    return 0
   fi
 
-  for remote in origin upstream; do
-    if ! repo="$(remote_repo "$remote")"; then
-      if [[ -z "$target_repo" ]] && git config --get "remote.$remote.url" >/dev/null; then
-        echo "Error: Cannot identify the GitHub repository for '$remote'. Use a full PR URL." >&2
-        return 1
-      fi
-      continue
-    fi
-    if [[ -n "$target_repo" && "${repo,,}" != "${target_repo,,}" ]]; then
-      continue
-    fi
-    if [[ "${repo,,}" == "${previous_repo,,}" ]]; then
-      continue
-    fi
-    previous_repo="$repo"
-
-    if result="$(gh api --hostname "${repo%%/*}" "repos/${repo#*/}/pulls/$pr_num" 2>&1)"; then
-      if [[ -n "$base_remote" ]]; then
-        if [[ "$prefer_upstream" != true ]]; then
-          local choice
-          echo "PR #$pr_num exists on both remotes:" >&2
-          jq -r '"  origin:   " + .html_url' <<< "$pr_json" >&2
-          jq -r '"  upstream: " + .html_url' <<< "$result" >&2
-          while true; do
-            printf 'Use origin or upstream? [upstream] ' >&2
-            if ! IFS= read -r choice; then
-              printf '\nError: No selection received. Use --upstream or a full PR URL.\n' >&2
-              return 1
-            fi
-            case "$choice" in
-              origin) return 0 ;;
-              upstream|"") break ;;
-              *) echo "Enter 'origin' or 'upstream'." >&2 ;;
-            esac
-          done
-        fi
-      fi
+  local remote repo result
+  for remote in upstream origin; do
+    repo="$(remote_slug "$remote" || true)"
+    [[ -n "$repo" ]] || continue
+    if result="$(gh pr view -R "$repo" "$pr_num" --json "$fields" 2>&1)"; then
       base_remote="$remote"
+      base_repo="$repo"
       pr_json="$result"
-    elif [[ "$result" != *"(HTTP 404)" ]]; then
-      printf "Error: Could not look up PR #%s on '%s' (%s):\n%s\n" "$pr_num" "$remote" "$repo" "$result" >&2
+      return 0
+    elif [[ "$result" != *"Could not resolve to a PullRequest"* ]]; then
+      echo "Error: Failed to look up PR #${pr_num} on '${remote}' (${repo}):" >&2
+      echo "$result" >&2
       return 1
     fi
   done
 
-  if [[ -z "$base_remote" ]]; then
-    if [[ -z "$previous_repo" ]]; then
-      echo "Error: No origin or upstream remote matches the requested GitHub repository." >&2
-    else
-      echo "Error: PR #$pr_num was not found on the selected origin/upstream repositories." >&2
-    fi
-    return 1
-  fi
+  echo "Error: PR #${pr_num} was not found on upstream or origin." >&2
+  return 1
 }
 
 check_worktree_pr_url() {
   local input="$1" wt_path="$2" expected actual
   if [[ "$input" =~ $PR_URL_PATTERN ]]; then
-    expected="${BASH_REMATCH[1]}/pull/${BASH_REMATCH[2]}"
+    expected="${BASH_REMATCH[1]}/pull/${BASH_REMATCH[3]}"
     if [[ ! -f "$wt_path/.worktree-info" ]]; then
       echo "Error: No PR metadata at '$wt_path' to verify '$expected'." >&2
       return 1
     fi
-    actual="$(awk '/^PR_URL=/ {print substr($0, 8); exit}' "$wt_path/.worktree-info")"
-    actual="${actual#*://}"
-    expected="${expected#*://}"
-    if [[ "${actual,,}" != "${expected,,}" ]]; then
+    actual="$(grep '^PR_URL=' "$wt_path/.worktree-info" | head -n1 | cut -d'=' -f2- || true)"
+    local actual_norm="${actual#*://}" expected_norm="${expected#*://}"
+    if [[ "${actual_norm,,}" != "${expected_norm,,}" ]]; then
       echo "Error: '$wt_path' belongs to '${actual:-unknown PR}', not '$expected'." >&2
       return 1
     fi
@@ -156,11 +143,9 @@ usage() {
 Usage: $(basename "$0") <command> [options]
 
 Commands:
-  checkout <pr> [--upstream]
-                    Check out a PR into a dedicated worktree in \$WT_ROOT/pr-<number>,
-                    add fork remote if applicable, and run yarn install --immutable.
-                    If both remotes match, prompt (default: upstream).
-                    Use --upstream to skip the prompt, or a full PR URL to select a repository.
+  checkout <pr>     Check out a PR into a dedicated worktree in \$WT_ROOT/pr-<number>,
+                    checking upstream first and then origin (or pass a full PR URL).
+                    Adds the fork remote if needed and runs yarn install --immutable.
                     (Aliases: co, add)
 
   teardown [<pr>]   Tear down the worktree and remove the local PR branch.
@@ -180,7 +165,7 @@ Environment:
 
 Examples:
   $(basename "$0") checkout 6
-  $(basename "$0") checkout https://github.com/sjd78/konveyor-backstage/pull/6
+  $(basename "$0") checkout https://github.com/sjd78/mta-rhdh-plugin/pull/6
   $(basename "$0") list
   $(basename "$0") teardown 6
   $(basename "$0") teardown --force
@@ -192,48 +177,37 @@ EOF
 # -----------------------------------------------------------------------------
 
 cmd_checkout() {
-  local pr_input="" prefer_upstream=false arg
-  for arg in "$@"; do
-    case "$arg" in
-      --upstream) prefer_upstream=true ;;
-      -*)
-        echo "Error: Unknown checkout option '$arg'." >&2
-        return 1
-        ;;
-      *)
-        if [[ -n "$pr_input" ]]; then
-          echo "Error: Expected one PR number or URL." >&2
-          return 1
-        fi
-        pr_input="$arg"
-        ;;
-    esac
-  done
-  if [[ -z "$pr_input" ]]; then
+  local pr_input="${1:-}"
+  if [[ -z "$pr_input" || "$pr_input" == -* ]]; then
     echo "Error: Missing PR number or URL." >&2
     usage
     exit 1
   fi
+  if [[ $# -gt 1 ]]; then
+    echo "Error: Expected one PR number or URL." >&2
+    return 1
+  fi
 
   check_prerequisites
-  local pr_num base_remote="" pr_json=""
+  local pr_num base_remote="" base_repo="" pr_json=""
   pr_num="$(extract_pr_number "$pr_input")"
 
   echo "==> Resolving PR #${pr_num} via gh..."
-  resolve_pr "$pr_input" "$pr_num" "$prefer_upstream"
+  resolve_pr "$pr_input" "$pr_num"
 
   local title is_fork head_owner head_repo head_branch base_branch pr_url
   title="$(jq -r '.title' <<< "$pr_json")"
-  head_owner="$(jq -r '.head.repo.owner.login // empty' <<< "$pr_json")"
-  head_repo="$(jq -r '.head.repo.full_name // empty' <<< "$pr_json")"
-  head_branch="$(jq -r '.head.ref' <<< "$pr_json")"
-  base_branch="$(jq -r '.base.ref' <<< "$pr_json")"
-  pr_url="$(jq -r '.html_url' <<< "$pr_json")"
+  is_fork="$(jq -r '.isCrossRepository' <<< "$pr_json")"
+  head_owner="$(jq -r '.headRepositoryOwner.login // empty' <<< "$pr_json")"
+  head_repo="$(jq -r '.headRepository.nameWithOwner // empty' <<< "$pr_json")"
+  head_branch="$(jq -r '.headRefName' <<< "$pr_json")"
+  base_branch="$(jq -r '.baseRefName' <<< "$pr_json")"
+  pr_url="$(jq -r '.url' <<< "$pr_json")"
+
   if [[ -z "$head_repo" ]]; then
     echo "Error: The head repository for $pr_url is unavailable." >&2
     return 1
   fi
-  is_fork="$(jq -r '.head.repo.id != .base.repo.id' <<< "$pr_json")"
 
   local wt_path="${WT_ROOT}/pr-${pr_num}"
 
@@ -250,45 +224,30 @@ cmd_checkout() {
     exit 1
   fi
 
-  # The PR's base and head may live on different remotes.
+  # Reuse matching remote (origin, upstream, or existing fork), or add one for the fork
   local remote_name remote_url
-  local head_url head_identity remote repo push_urls push_url
-  local base_url
-  base_url="$(git remote get-url "$base_remote")"
-  if [[ "$base_url" == ssh://* || "$base_url" == *@*:* && "$base_url" != *://* ]]; then
-    head_url="$(jq -r '.head.repo.ssh_url' <<< "$pr_json")"
-  else
-    head_url="$(jq -r '.head.repo.clone_url' <<< "$pr_json")"
-  fi
-  head_identity="$(repo_identity "$head_url")"
-  remote_name=""
-  for remote in "$base_remote" $(git remote); do
-    repo="$(remote_repo "$remote")" && [[ "${repo,,}" == "${head_identity,,}" ]] || continue
-    push_urls="$(git remote get-url --push --all "$remote")" || continue
-    while IFS= read -r push_url; do
-      repo="$(repo_identity "$push_url")" && [[ "${repo,,}" == "${head_identity,,}" ]] || continue 2
-    done <<< "$push_urls"
-    remote_name="$remote"
-    break
-  done
+  remote_name="$(find_remote_for_repo "$head_repo" || true)"
   if [[ -z "$remote_name" ]]; then
     remote_name="$head_owner"
     if git remote get-url "$remote_name" &>/dev/null; then
       remote_name="pr-${head_owner}-${head_repo##*/}"
     fi
-    echo "==> Adding head remote '$remote_name' for '$head_repo'..."
-    git remote add "$remote_name" "$head_url"
-  fi
-  push_urls="$(git remote get-url --push --all "$remote_name")"
-  while IFS= read -r push_url; do
-    if ! repo="$(repo_identity "$push_url")" || [[ "${repo,,}" != "${head_identity,,}" ]]; then
-      echo "Error: Remote '$remote_name' pushes outside '$head_identity'." >&2
-      return 1
+    local base_url host
+    base_url="$(git remote get-url "$base_remote")"
+    host="${pr_url#*://}"
+    host="${host%%/*}"
+    if [[ "$base_url" == ssh://* || ( "$base_url" == *@*:* && "$base_url" != *://* ) ]]; then
+      remote_url="git@${host}:${head_repo}.git"
+    else
+      remote_url="https://${host}/${head_repo}.git"
     fi
-  done <<< "$push_urls"
-  remote_url="$(git remote get-url "$remote_name")"
+    echo "==> Adding remote '$remote_name' -> $remote_url"
+    git remote add "$remote_name" "$remote_url"
+  else
+    remote_url="$(git remote get-url "$remote_name")"
+  fi
 
-  # Branch naming: pr/<owner>/<pr_num> for forks, pr/<pr_num> for local branches
+  # Branch naming: pr/<owner>/<pr_num> for forks, pr/<pr_num> for same-repo branches
   local branch_name
   if [[ "$is_fork" == "true" ]]; then
     branch_name="pr/${head_owner}/${pr_num}"
@@ -302,16 +261,16 @@ cmd_checkout() {
     exit 1
   fi
 
-  local fetch_ref="refs/pr-worktree/fetch/$$"
-  (
-    trap 'git update-ref -d "$fetch_ref"' EXIT
-    git fetch --no-write-fetch-head "$remote_name" "+refs/heads/$head_branch:$fetch_ref"
-    if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
-      git branch -f "$branch_name" "$fetch_ref"
-    else
-      git branch "$branch_name" "$fetch_ref"
-    fi
-  )
+  echo "==> Fetching '$head_branch' from '$remote_name'..."
+  git fetch "$remote_name" "+refs/heads/$head_branch:refs/remotes/$remote_name/$head_branch"
+
+  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+    echo "==> Updating local branch '$branch_name' to '$remote_name/$head_branch'..."
+    git branch -f "$branch_name" "$remote_name/$head_branch"
+  else
+    echo "==> Creating local branch '$branch_name' from '$remote_name/$head_branch'..."
+    git branch "$branch_name" "$remote_name/$head_branch"
+  fi
 
   # Create worktree
   mkdir -p "$(dirname "$wt_path")"
@@ -325,14 +284,15 @@ cmd_checkout() {
 PR_NUMBER=$pr_num
 PR_URL=$pr_url
 PR_TITLE=$title
-BRANCH_NAME=$branch_name
-REMOTE_NAME=$remote_name
-REMOTE_URL=$remote_url
+BASE_REPO=$base_repo
+BASE_REMOTE=$base_remote
+BASE_BRANCH=$base_branch
 HEAD_OWNER=$head_owner
 HEAD_REPO=$head_repo
 HEAD_BRANCH=$head_branch
-BASE_REMOTE=$base_remote
-BASE_BRANCH=$base_branch
+REMOTE_NAME=$remote_name
+REMOTE_URL=$remote_url
+BRANCH_NAME=$branch_name
 WORKTREE_PATH=$wt_path
 IS_FORK=$is_fork
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -340,7 +300,7 @@ EOF
 
   # Ensure .worktree-info is excluded from git in this worktree
   local git_info_exclude
-  git_info_exclude="$(git -C "$wt_path" rev-parse --git-path info/exclude 2>/dev/null || true)"
+  git_info_exclude="$(git -C "$wt_path" rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null || true)"
   if [[ -n "$git_info_exclude" && -f "$git_info_exclude" ]]; then
     if ! grep -q '^\.worktree-info$' "$git_info_exclude" 2>/dev/null; then
       echo ".worktree-info" >> "$git_info_exclude"
@@ -359,15 +319,19 @@ EOF
   echo "PR Worktree Ready!"
   echo "  Location: $wt_path"
   echo "  Branch:   $branch_name"
-  echo "  PR #${pr_num}:  $title"
-  echo "  URL:      $pr_url"
+  if [[ -x "$SCRIPT_DIR/pr-push.sh" ]]; then
+    echo ""
+    (cd "$wt_path" && "$SCRIPT_DIR/pr-push.sh" --show)
+  fi
   echo ""
   echo "Next steps:"
   echo "  1. Switch to worktree:"
   echo "       cd $wt_path"
   echo "  2. Evaluate and rebase with agent skill:"
   echo "       /skill:pr-evaluation"
-  echo "  3. When review/updates are complete, teardown:"
+  echo "  3. Push updates to the PR branch:"
+  echo "       hack/pr-push.sh"
+  echo "  4. When review/updates are complete, teardown:"
   echo "       $(basename "$0") teardown $pr_num"
   echo "================================================================="
 }

@@ -28,9 +28,11 @@ Follow this 6-step process to evaluate and update the PR:
    - If present, parse:
      - `PR_NUMBER`: GitHub PR number
      - `PR_URL`: Link to PR
+     - `BASE_REPO`: Target repository (`owner/repo`)
      - `BASE_REMOTE`: Remote for the PR target repository
      - `BASE_BRANCH`: Target base branch (usually `main`)
      - `BRANCH_NAME`: Local tracking branch
+     - `HEAD_REPO`: Source repository (`owner/repo`)
      - `REMOTE_NAME`: Remote name for the PR head
      - `HEAD_BRANCH`: PR head branch name
    - If `.worktree-info` is not present, determine current branch via `git branch --show-current` and query `gh`:
@@ -56,8 +58,7 @@ Follow this 6-step process to evaluate and update the PR:
 
 2. Determine base remote and branch:
 
-   - Use `BASE_REMOTE` from `.worktree-info`, after confirming that it points to the repository in `PR_URL`.
-   - If `BASE_REMOTE` is unavailable, match the repository in `PR_URL` to a configured remote. Do not use the head remote or prefer `upstream` just because it exists. If no remote matches, stop before rebasing.
+   - Use `BASE_REMOTE` from `.worktree-info` (or match the repository in `PR_URL` to a configured remote). Do not prefer `upstream` blindly if the PR targets `origin`. If no remote matches, stop before rebasing.
 
 3. Fetch the latest commits for the target base:
    ```bash
@@ -214,10 +215,11 @@ After the rebase completes cleanly:
 - **To request changes:** Suggested review comment:
   > <Draft comment ready for PR review>
 - **To push rebased branch:**
+
   ```bash
-  git push --force-with-lease <REMOTE_NAME> <BRANCH_NAME>
+  hack/pr-push.sh
+  # or: git push --force-with-lease <REMOTE_NAME> HEAD:<HEAD_BRANCH>
   ```
-````
 
 - **To tear down worktree when finished:**
   ```bash
@@ -227,3 +229,4 @@ After the rebase completes cleanly:
 ```
 EOF
 ```
+````

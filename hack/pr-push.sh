@@ -10,24 +10,30 @@ usage() {
   cat << EOF
 Usage: $(basename "$0") [options] [-- additional-git-push-options]
 
-Force-pushes the current worktree HEAD to the PR tracking remote and branch
-specified in .worktree-info (\$wt_remote HEAD:\$wt_remote_branch).
+Force-pushes the current worktree HEAD to the PR source remote and branch
+recorded in .worktree-info (\$REMOTE_NAME HEAD:\$HEAD_BRANCH).
 
 Must be run from within a PR worktree folder containing a .worktree-info file.
 
 Options:
   -n, --dry-run   Perform a dry-run push without updating remote references
+  -s, --show      List the push destination and exit without pushing
   -h, --help      Show this help message
 EOF
 }
 
 # Parse options
+show_only=false
 extra_args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
       usage
       exit 0
+      ;;
+    -s|--show)
+      show_only=true
+      shift
       ;;
     -n|--dry-run)
       extra_args+=("--dry-run")
@@ -63,7 +69,11 @@ wt_remote="$(get_meta "REMOTE_NAME")"
 wt_remote_branch="$(get_meta "HEAD_BRANCH")"
 wt_remote_url="$(get_meta "REMOTE_URL")"
 wt_head_repo="$(get_meta "HEAD_REPO")"
+base_repo="$(get_meta "BASE_REPO")"
+base_remote="$(get_meta "BASE_REMOTE")"
+base_branch="$(get_meta "BASE_BRANCH")"
 pr_number="$(get_meta "PR_NUMBER")"
+pr_url="$(get_meta "PR_URL")"
 pr_title="$(get_meta "PR_TITLE")"
 
 if [[ -z "$wt_remote" ]]; then
@@ -76,33 +86,28 @@ if [[ -z "$wt_remote_branch" ]]; then
   exit 1
 fi
 
-pr_url="$(get_meta PR_URL)"
-host="${pr_url#*://}"
-expected="${host%%/*}/$wt_head_repo"
-push_urls="$(git -C "$wt_root" remote get-url --push --all "$wt_remote")"
-url_pattern='^((https?|ssh|git)://)?([^/@]+@)?([a-zA-Z0-9.-]+)[:/]([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)$'
-while IFS= read -r push_url; do
-  if [[ -z "$wt_head_repo" || "$pr_url" != https://* || ! "${push_url%/}" =~ $url_pattern ]]; then
-    echo "Error: Cannot verify push destination for '$wt_remote'." >&2
-    exit 1
-  fi
-  destination="${BASH_REMATCH[4]}/${BASH_REMATCH[5]%.git}"
-  if [[ "${destination,,}" != "${expected,,}" ]]; then
-    echo "Error: Remote '$wt_remote' pushes to '$destination', not '$expected'." >&2
-    exit 1
-  fi
-done <<< "$push_urls"
+push_url="$(git -C "$wt_root" remote get-url --push "$wt_remote" 2>/dev/null || echo "${wt_remote_url:-$wt_remote}")"
+source_repo="${wt_head_repo:-$wt_remote}"
 
-target_repo="${wt_head_repo:-${wt_remote_url:-$wt_remote}}"
-
-echo "Target repository: ${target_repo} (remote: ${wt_remote})"
-echo "Target branch:     ${wt_remote_branch}"
 if [[ -n "$pr_number" ]]; then
   echo "PR:                #${pr_number}${pr_title:+ (${pr_title})}"
 fi
+if [[ -n "$pr_url" ]]; then
+  echo "PR URL:            ${pr_url}"
+fi
+if [[ -n "$base_repo" || -n "$base_branch" ]]; then
+  echo "PR target:         ${base_repo:-${base_remote:-unknown}}${base_branch:+ (${base_remote:+$base_remote/}$base_branch)}"
+fi
+echo "Push source:       ${source_repo} (remote: ${wt_remote})"
+echo "Push URL:          ${push_url}"
+echo "Push branch:       ${wt_remote_branch}"
 echo "Local commit:      $(git -C "$wt_root" rev-parse --short HEAD) - $(git -C "$wt_root" log -1 --pretty=format:'%s')"
-echo ""
 
+if [[ "$show_only" == "true" ]]; then
+  exit 0
+fi
+
+echo ""
 if [[ ${#extra_args[@]} -gt 0 ]]; then
   git -C "$wt_root" push -f "${extra_args[@]}" "$wt_remote" "HEAD:$wt_remote_branch"
 else
