@@ -5,9 +5,8 @@ import {
 } from '@backstage/backend-plugin-api';
 import {
   createTemplateAction,
-  type TemplateAction,
+  scaffolderActionsExtensionPoint,
 } from '@backstage/plugin-scaffolder-node';
-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node/alpha';
 
 const CATALOG_SYNC_WAIT_MS = 12000;
 
@@ -247,82 +246,51 @@ export async function registerApplication(
   );
 }
 
-export function createRegisterApplicationAction(
-  deps: RegisterApplicationDeps,
-): TemplateAction<RegisterApplicationInput, RegisterApplicationOutput> {
-  return createTemplateAction<
-    RegisterApplicationInput,
-    RegisterApplicationOutput
-  >({
+export function createRegisterApplicationAction(deps: RegisterApplicationDeps) {
+  return createTemplateAction({
     id: 'mta:register-application',
     description:
       'Register a catalog application or a Git repository for migration with the Migration Toolkit for Applications',
     schema: {
       input: {
-        type: 'object',
-        properties: {
-          entityRef: {
-            type: 'string',
-            title: 'Catalog Application',
-            description:
+        entityRef: z =>
+          z
+            .string()
+            .optional()
+            .describe(
               'Entity reference of a catalog Component. Provide this or repoUrl, not both.',
-          },
-          repoUrl: {
-            type: 'string',
-            title: 'Repository URL',
-            description:
+            ),
+        repoUrl: z =>
+          z
+            .string()
+            .optional()
+            .describe(
               'The Git repository URL of the application. Provide this or entityRef, not both.',
-          },
-          repository: {
-            type: 'string',
-            title: 'Resolved Repository URL',
-            description:
+            ),
+        repository: z =>
+          z
+            .string()
+            .optional()
+            .describe(
               'Clone URL resolved from the selected catalog application',
-          },
-          rootPath: {
-            type: 'string',
-            title: 'Application Root Path',
-            description:
+            ),
+        rootPath: z =>
+          z
+            .string()
+            .optional()
+            .describe(
               'Optional path within the repository to the application root directory',
-          },
-        },
+            ),
       },
       output: {
-        type: 'object',
-        properties: {
-          applicationId: {
-            type: 'string',
-            title: 'Application ID',
-          },
-          applicationName: {
-            type: 'string',
-            title: 'Application Name',
-          },
-          applicationTitle: {
-            type: 'string',
-            title: 'Application Display Name',
-          },
-          entityRef: {
-            type: 'string',
-            title: 'Entity Reference',
-          },
-          entityNamespace: {
-            type: 'string',
-            title: 'Entity Namespace',
-          },
-          entityName: {
-            type: 'string',
-            title: 'Entity Name',
-          },
-          autoDiscover: {
-            type: 'boolean',
-            title: 'Start Discovery',
-          },
-          message: {
-            type: 'string',
-            title: 'Result Message',
-          },
-        },
+        applicationId: z => z.string().describe('Application ID'),
+        applicationName: z => z.string().describe('Application Name'),
+        applicationTitle: z => z.string().describe('Application Display Name'),
+        entityRef: z => z.string().describe('Entity Reference'),
+        entityNamespace: z => z.string().describe('Entity Namespace'),
+        entityName: z => z.string().describe('Entity Name'),
+        autoDiscover: z => z.boolean().describe('Start Discovery'),
+        message: z => z.string().describe('Result Message'),
       },
     },
     async handler(ctx) {
