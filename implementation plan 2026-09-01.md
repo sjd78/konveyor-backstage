@@ -1,9 +1,9 @@
 # Implementation Plan: Hooking MTA Plugins to a Live MTA Hub Instance
 
-**Date:** 2026-10-27 (Updated from 2026-09-01; Phase 2a added and live Phase 2 verified)
+**Date:** 2026-11-19 (Phase 5 updated for RHDH 2.1)
 **Base Repository:** `static-backstage` (Static Backstage Monorepo)
 **Target Hub API Reference:** [`konveyor/tackle2-hub`](https://github.com/konveyor/tackle2-hub)
-**Target RHDH Runtime:** Red Hat Developer Hub (Dynamic Plugins via Scalprum / Janus IDP)
+**Target RHDH Runtime:** Red Hat Developer Hub 2.1.0 (Backstage 1.54.9; New Frontend System and OCI dynamic plugins)
 **Jira Epic:** [MTA-7629](https://issues.redhat.com/browse/MTA-7629)
 
 ---
@@ -24,7 +24,7 @@ The architecture addresses three core requirements:
 
 1. **User-Delegated Authentication (OIDC / OAuth2):** All user-initiated mutations and reads strictly forward the individual user's OIDC bearer token directly through to the MTA Hub. There is **no platform service account** for user actions, preserving Tackle2 RBAC and user-level audit trails. _(Introduced in Phase 3.)_
 2. **Modern Data Fetching & Reactive State:** Phase 1 retains the in-memory demo store and mock Hub so registration and remediation stories remain runnable without the visible harness. Phase 2 replaces frontend demo state with a request-scoped backend proxy (`mta-backend`), `MtaApiClient`, and reactive hooks. The mock Hub remains for its scaffolder/catalog consumers until their Phase 4 cutover.
-3. **Dual-Target Build Chain (Static Base → RHDH Dynamic Plugins):** Using the current `static-backstage` monorepo as the **Single Source of Truth (SSOT)**. The static plugins serve as the base for development and testing, while a dynamic plugin export step packages them into Scalprum-compatible dynamic plugins for deployment in Red Hat Developer Hub (RHDH). _(Phase 5.)_
+3. **Dual-Target Build Chain (Static Base → RHDH Dynamic Plugins):** The static monorepo is the single source of truth. Keep the static dev host for fast iteration; export the same plugin workspaces as OCI artifacts and verify them in a separate RHDH 2.1 runtime. _(Phase 5.)_
 
 ---
 
@@ -638,91 +638,43 @@ For automatic background ingestion of newly registered MTA applications into the
 
 ### Strategic Objective: Static Monorepo as Single Source of Truth
 
-The `static-backstage` monorepo serves as the **core development platform**. Developers write standard TypeScript, test with standard Jest suites, and run the static app locally. A dedicated **build & export chain** transforms the static plugins into dynamic plugin artifacts consumed by Red Hat Developer Hub without code duplication.
+Use the static dev host and gallery for development. They register workspaces directly and do not exercise the RHDH installer, frontend discovery, shared dependencies, or product theme. Keep RHDH test and deployment configuration separate from `dev-host/`.
 
 ```mermaid
 flowchart TD
-    subgraph Source["Single Source of Truth (static-backstage)"]
-        FE_SRC["plugins/mta (TypeScript Source)"]
-        BE_SRC["plugins/mta-backend (TypeScript Source)"]
-        CAT_SRC["plugins/catalog-backend-module-mta-entity-provider"]
-        SCAF_SRC["plugins/scaffolder-backend-module-mta-actions"]
-    end
-
-    subgraph StaticDev["Static Development & Verification"]
-        TSC["yarn tsc (Typecheck)"]
-        TEST["yarn backstage-cli repo test (Jest)"]
-        APP["yarn start (Local Static Backstage Dev)"]
-        FE_SRC --> TSC & TEST & APP
-        BE_SRC --> TSC & TEST & APP
-        CAT_SRC --> TSC & TEST & APP
-        SCAF_SRC --> TSC & TEST & APP
-    end
-
-    subgraph BuildChain["Dynamic Plugin Export Chain"]
-        JANUS_FE["@janus-idp/cli package export-dynamic-plugin<br/>(Scalprum Webpack Bundler)"]
-        JANUS_BE["Backend Dynamic Packager<br/>(CommonJS + Dynamic Wrapper)"]
-        FE_SRC --> JANUS_FE
-        BE_SRC --> JANUS_BE
-        CAT_SRC --> JANUS_BE
-        SCAF_SRC --> JANUS_BE
-    end
-
-    subgraph Artifacts["Dynamic Plugin Distribution Targets"]
-        DIST_FE["Frontend Scalprum Bundle<br/>(dist-scalprum/)"]
-        DIST_BE["Backend Dynamic Bundle<br/>(dist-dynamic/ or dist/)"]
-        OCI["OCI Image<br/>(quay.io/...)"]
-        TGZ["NPM Tarballs<br/>(*.tgz)"]
-        LOCAL["Local Directory Mount<br/>(local-plugins/)"]
-        JANUS_FE --> DIST_FE --> OCI & TGZ & LOCAL
-        JANUS_BE --> DIST_BE --> OCI & TGZ & LOCAL
-    end
-
-    subgraph RHDHRuntime["RHDH Container Runtime"]
-        CONTAINER["Red Hat Developer Hub Container<br/>(quay.io/rhdh-community/rhdh:1.10)"]
-        INSTALLER["install-dynamic-plugins.sh<br/>(reads dynamic-plugins.yaml)"]
-        LOCAL & OCI & TGZ --> INSTALLER --> CONTAINER
-    end
+    SRC["Four release plugin workspaces"] --> STATIC["Static dev host and tests"]
+    SRC --> EXPORT["RHDH CLI 2.1.0: plugin export"]
+    EXPORT --> FE["Frontend dist-dynamic<br/>NFS feature metadata + remoteEntry.js"]
+    EXPORT --> BE["Backend dist-dynamic<br/>Plugin + catalog and scaffolder modules"]
+    FE & BE --> PACKAGE["RHDH CLI 2.1.0: plugin package"]
+    PACKAGE --> OCI["Versioned OCI artifacts"]
+    OCI --> RHDH["Pinned RHDH 2.1<br/>Installer and NFS discovery"]
 ```
 
 ### Dynamic Plugin Configuration for RHDH (Phase 5)
 
+Run `npx @red-hat-developer-hub/cli@2.1.0 plugin export` and `npx @red-hat-developer-hub/cli@2.1.0 plugin package --tag <image>` from each release plugin's workspace root. Export only `mta`, `mta-backend`, the catalog entity provider, and the Scaffolder actions module. Do not ship the mock Hub or dev-user authentication packages.
+
+Use the [2.1-specific NFS export guide](https://docs.redhat.com/en/documentation/red_hat_developer_hub/2.1/extend-con_convert_standard_plugins_into_dynamic_plugins_using_the_plugin_factory), not the legacy Scalprum examples. RHDH 2.1 requires standard Module Federation assets and discovers the frontend feature from `backstage.features`. Do not add `scalprum` metadata, legacy mount points, or `dist-scalprum/` output.
+
+Example `dynamic-plugins.yaml` fragment for an RHDH instance. Substitute the published OCI references; record image digests for reproducible verification. Use an isolated Hub for pre-production checks. Enable production access only after Phase 3 authentication and enable the catalog and Scaffolder modules for live use only after Phase 4 removes their mock Hub dependency.
+
 ```yaml
-# configs/dynamic-plugins/dynamic-plugins.override.yaml
-includes:
-  - dynamic-plugins.default.yaml
-
 plugins:
-  # MTA Frontend Dynamic Plugin
-  - package: ./local-plugins/red-hat-developer-hub-backstage-plugin-mta
-    disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-mta:
-            mountPoints:
-              - mountPoint: entity.page.mta/cards
-                importName: MtaAlpha
-            entityTabs:
-              - path: /migration
-                title: Migration
-                mountPoint: entity.page.mta
-
-  # MTA Backend Proxy Plugin
-  - package: ./local-plugins/mta-backend
-    disabled: false
+  - package: oci://registry.example.com/mta/frontend:0.1.0
+    enabled: true
+  - package: oci://registry.example.com/mta/backend:0.1.0
+    enabled: true
     pluginConfig:
       mta:
         baseUrl: ${MTA_HUB_BASE_URL}
-
-  # MTA Catalog Entity Provider Module
-  - package: ./local-plugins/mta-entity-provider
-    disabled: false
-
-  # MTA Scaffolder Actions Module
-  - package: ./local-plugins/mta-scaffolder-actions
-    disabled: false
+  - package: oci://registry.example.com/mta/catalog-entity-provider:0.1.0
+    enabled: false
+  - package: oci://registry.example.com/mta/scaffolder-actions:0.1.0
+    enabled: false
 ```
+
+Installation enables discovery; the plugin's blueprints provide the UI. Use the target instance's `app.extensions` only for overrides, such as the Migration tab's filter or the [RHDH homepage layout](https://docs.redhat.com/en/documentation/red_hat_developer_hub/2.1/migrate-proc_migrate_the_homepage_to_function_as_a_dynamic_plugin_loaded_through_blueprints), and `app.routes.bindings` for external route refs where needed. `app.extensions` arrays replace rather than merge across config files: preserve other required overrides in the effective array. Do not copy the static host's home, navigation, settings, or sign-in modules.
 
 ---
 
@@ -926,18 +878,23 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 **Story ([MTA-7940](https://issues.redhat.com/browse/MTA-7940)):** _MTA RHDH Plugin: Build dynamic plugin export chain for Red Hat Developer Hub_
 
-**Summary:** Configure the build chain to export the static plugins as Scalprum-compatible dynamic plugins for RHDH. The static monorepo remains the single source of truth. Can proceed in parallel with Phase 4.
+**Summary:** Export the four release workspaces with the RHDH 2.1 CLI, publish standalone OCI artifacts, and verify discovery and loading in a pinned RHDH 2.1 instance without changing the static dev host's role.
 
-**Dependency:** Phase 3 (plugins must be feature-complete before packaging). Can proceed in parallel with Phase 4.
+**Dependencies:** Align the shared dependency set before dynamic export. Export work can proceed alongside Phase 4; production use still requires Phase 3 authentication and Phase 4 live catalog and Scaffolder integration. Phase 6 owns live workflow validation.
 
-**Acceptance / Gate:** `yarn export:dynamic` produces `dist-scalprum/` and `dist-dynamic/` artifacts; artifact integrity verified; bundles load in RHDH container.
+**Compatibility baseline:** Use the tagged RHDH 2.1.0 [app manifest](https://github.com/redhat-developer/rhdh/blob/2.1.0/packages/app/package.json), [backend manifest](https://github.com/redhat-developer/rhdh/blob/2.1.0/packages/backend/package.json), and [lockfile](https://github.com/redhat-developer/rhdh/blob/2.1.0/yarn.lock). Match host-provided versions, not incidental transitive resolutions or just the `backstage.json` release marker. Use Node 22 and Yarn 4 for export. Priority packages:
 
-| Task | Title                                                  | Description                                                                                                                                                                                                                            | Scope (files)                                                                                                                               | Type   |
-| ---- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 5.1  | Add Scalprum configuration for dynamic frontend export | Add `"scalprum"` block in `plugins/mta/package.json` with name, `exposedModules` (`PluginRoot`, `MtaAlpha`). Configure Webpack Module Federation settings for RHDH runtime loading.                                                    | `plugins/mta/package.json`                                                                                                                  | modify |
-| 5.2  | Add `yarn export:dynamic` script using @janus-idp/cli  | Add `@janus-idp/cli` as a `devDependency`. Create `export:dynamic` script in root `package.json` that invokes `export-dynamic-plugin` for each plugin. Produces `dist-scalprum/` for frontend and `dist-dynamic/` for backend plugins. | `package.json`<br>`plugins/*/package.json`                                                                                                  | modify |
-| 5.3  | Package backend plugins as CommonJS dynamic modules    | Configure `mta-backend`, catalog entity provider, and scaffolder actions modules for CommonJS dynamic packaging. Ensure dependencies are properly bundled or declared.                                                                 | `plugins/mta-backend/package.json`<br>`plugins/catalog-backend-module-*/package.json`<br>`plugins/scaffolder-backend-module-*/package.json` | modify |
-| 5.4  | Create dynamic-plugins.yaml configuration for RHDH     | Create the RHDH dynamic plugins configuration file with mount points, entity tabs, plugin config, and enable/disable toggles for each plugin. See §6.                                                                                  | `configs/dynamic-plugins/dynamic-plugins.override.yaml`                                                                                     | new    |
+- Frontend: `frontend-plugin-api` 0.18.0, `core-plugin-api` 1.12.9, `ui` 0.17.1, `plugin-catalog-react` 3.2.2, `plugin-home-react` 0.1.41, and `plugin-scaffolder-react` 2.0.3 (all `@backstage/`).
+- Backend: `backend-plugin-api` 1.10.0, `backend-defaults` 0.17.8, `plugin-catalog-backend` 3.9.1, `plugin-scaffolder-backend` 4.1.0, and `plugin-scaffolder-node` 0.13.6. At that version, import `scaffolderActionsExtensionPoint` from `@backstage/plugin-scaffolder-node`, not `/alpha`.
+
+**Acceptance / Gate:** `yarn export:dynamic` produces four loadable `dist-dynamic/` packages. The frontend package includes `dist/remoteEntry.js` and NFS `backstage.features` metadata. Pack and install the same OCI artifacts in a pinned RHDH 2.1 runtime; record the host and artifact digests. All four features load in the isolated verification environment, without installing dev-only plugins. Verify the `/mta` page and navigation, Component Migration tab, homepage widget, backend discovery, Scaffolder field and action registration, and catalog provider registration. Check BUI light and dark styling and links under the target layout, including links that currently hard-code `/catalog` and `/create`. This is a packaging and loading gate, not permission to enable unfinished live operations.
+
+| Task | Title                         | Description                                                                                                                                                                                                                                                                      |
+| ---- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1  | Align shared dependencies     | Align manifests and lockfile to the tagged host. Fix the Scaffolder import, regenerate dependency reports, and verify the static host and plugin tests.                                                                                                                          |
+| 5.2  | Prepare the NFS entry point   | Keep the existing default NFS export and blueprints. Use real `import()` calls for page, tab, home widget, and form-field UI so those components stay out of the remote startup chunk.                                                                                           |
+| 5.3  | Export and package workspaces | Pin `@red-hat-developer-hub/cli@2.1.0` in the export workflow. Retain the backend plugin/module default exports; inspect generated manifests for host-provided peers and bundled private dependencies. Package and publish OCI artifacts as described in §6.                     |
+| 5.4  | Verify on RHDH 2.1            | Use the [RHDH Local CLI workflow](https://docs.redhat.com/en/documentation/red_hat_developer_hub/2.1/extend-proc_verify_plugins_locally) for iteration, then install the OCI artifacts through the RHDH installer for the release gate. Keep test overrides outside `dev-host/`. |
 
 ---
 
@@ -951,10 +908,10 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 **Acceptance / Gate:** Full migration workflow (register → discover → analyze → remediate → complete) works end-to-end in both static Backstage and RHDH container with individual user auth.
 
-| Task | Title                                                    | Description                                                                                                                                                                                                                | Scope (files)                                                                       | Type |
-| ---- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---- |
-| 6.1  | Configure environment for live Tackle2 Hub deployment    | Set `MTA_HUB_BASE_URL` to live Hub instance. Configure OIDC client credentials. Verify network connectivity from Backstage backend to Hub API.                                                                             | Target deployment's app-config (outside this development-host repository)<br>`.env` | new  |
-| 6.2  | Validate dynamic plugins in RHDH container with live Hub | Launch RHDH container (`quay.io/rhdh-community/rhdh:1.10`) with exported dynamic plugins mounted. Run `install-dynamic-plugins.sh`. Verify all plugins load, auth flows work, and migration workflow completes end-to-end. | Deployment config, container compose                                                | new  |
+| Task | Title                                                 | Description                                                                                                                                                                 | Scope (files)                                                                       | Type |
+| ---- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---- |
+| 6.1  | Configure environment for live Tackle2 Hub deployment | Set `MTA_HUB_BASE_URL` to live Hub instance. Configure OIDC client credentials. Verify network connectivity from Backstage backend to Hub API.                              | Target deployment's app-config (outside this development-host repository)<br>`.env` | new  |
+| 6.2  | Validate dynamic plugins in RHDH with live Hub        | Install the Phase 5 OCI artifacts on the pinned RHDH 2.1 target, enable the live catalog and Scaffolder modules, and verify authentication and the full migration workflow. | Target deployment configuration (outside `dev-host/`)                               | new  |
 
 ---
 
@@ -962,39 +919,41 @@ Home summaries and entity tabs must agree on the persisted connection and Hub re
 
 Every file created, modified, or deleted across all phases:
 
-| File                                                               | Action              | Phase   | Notes                                                                     |
-| ------------------------------------------------------------------ | ------------------- | ------- | ------------------------------------------------------------------------- |
-| `plugins/mta/src/prototype/` _(directory)_                         | **delete**          | 1       | Entire prototype directory                                                |
-| `plugins/mta/src/store/MtaStore.tsx`                               | modify, then delete | 1, 2    | Demo state retained in Phase 1; replaced by live data in Phase 2          |
-| `plugins/mta/src/store/mockData.ts`                                | modify, then delete | 1, 2    | Demo fixtures retained through Phase 1                                    |
-| `plugins/mta-mock-hub-backend/` _(plugin)_                         | **delete**          | 4       | Remove after both backend consumers use live Hub                          |
-| `plugins/mta/src/alpha.tsx`                                        | modify              | 1, 3    | Remove `mountGlobalScopeBar()`; later wire auth API factory               |
-| `plugins/mta/src/components/MigrationTab.tsx`                      | modify              | 1, 2    | Per-app demo transitions; later consume live API                          |
-| `plugins/mta/src/components/phases/*`                              | modify              | 1, 2    | Remove scope gates; later consume live API                                |
-| `plugins/mta/src/hooks/usePersonaRole.ts`                          | create              | 1       | Group-membership persona detection                                        |
-| `dev-host/data/catalog/konveyor/mta-users.yaml`                    | modify              | 1       | Named persona users and groups                                            |
-| Demo Components fixture _(since deleted)_                          | modify, then delete | 1, 2    | Persona ownership and demo status; replaced by generated scenario catalog |
-| `dev-host/app-config.yaml`                                         | modify              | 1, 2, 3 | Dev guest persona; later Hub URL and OIDC                                 |
-| `plugins/catalog-backend-module-mta-entity-provider/src/module.ts` | modify              | 1, 4    | Mock persona ownership/status; later live Hub sync                        |
-| `plugins/scaffolder-backend-module-mta-actions/src/module.ts`      | modify              | 1, 3, 4 | Mock entity refs; later delegated live registration                       |
-| `dev-host/data/catalog/konveyor/mta-template.yaml`                 | modify              | 1, 4    | Link generated demo entity; later live registration                       |
-| `plugins/mta-backend/src/service/types.ts`                         | create              | 2       | Tackle2 domain model types                                                |
-| `plugins/mta-backend/src/service/TackleClient.ts`                  | create              | 2       | Hub REST client (no auth initially)                                       |
-| `plugins/mta-backend/src/router.ts`                                | modify              | 2, 3    | Add proxy routes; later add auth validation                               |
-| `plugins/mta-backend/src/plugin.ts`                                | modify              | 2       | Read `mta.baseUrl` config                                                 |
-| `plugins/mta/src/api/types.ts`                                     | create              | 2       | Frontend Tackle2 types                                                    |
-| `plugins/mta/src/api/MtaApiClient.ts`                              | create              | 2, 3    | Frontend API client; later add auth                                       |
-| `plugins/mta/src/api/index.ts`                                     | create              | 2       | API barrel export                                                         |
-| `plugins/mta/src/hooks/useMtaAnalysis.ts`                          | create              | 2       | Polling hook for analysis tasks                                           |
-| `plugins/mta/src/api/auth.ts`                                      | create              | 3       | `mtaAuthApiRef` definition                                                |
-| `plugins/mta-backend/src/service/TackleClient.ts`                  | modify              | 3       | Require user bearer token                                                 |
-| `plugins/mta/package.json`                                         | modify              | 5       | Add Scalprum config                                                       |
-| `package.json`                                                     | modify              | 5       | Add `export:dynamic` script                                               |
-| `dev-host/start/`, `dev-host/data/` _(development tooling/data)_   | modify              | 2a      | Cohort manifest, seed preparation scenarios, generated catalog/mapping    |
-| `dev-host/app/src/modules/home/`                                   | modify              | 2a      | Development-only sample loading, inventory, and scenario controls         |
-| `dev-host/backend`                                                 | modify              | 2a      | Opt-in development adapter; seed endpoints excluded outside development   |
-| `README.md`, `dev-host/README.md`                                  | modify              | 2a      | Seed scenario and verified startup instructions                           |
-| `configs/dynamic-plugins/dynamic-plugins.override.yaml`            | create              | 5       | RHDH plugin configuration                                                 |
+| File                                                                   | Action              | Phase   | Notes                                                                     |
+| ---------------------------------------------------------------------- | ------------------- | ------- | ------------------------------------------------------------------------- |
+| `plugins/mta/src/prototype/` _(directory)_                             | **delete**          | 1       | Entire prototype directory                                                |
+| `plugins/mta/src/store/MtaStore.tsx`                                   | modify, then delete | 1, 2    | Demo state retained in Phase 1; replaced by live data in Phase 2          |
+| `plugins/mta/src/store/mockData.ts`                                    | modify, then delete | 1, 2    | Demo fixtures retained through Phase 1                                    |
+| `plugins/mta-mock-hub-backend/` _(plugin)_                             | **delete**          | 4       | Remove after both backend consumers use live Hub                          |
+| `plugins/mta/src/alpha.tsx`                                            | modify              | 1, 3    | Remove `mountGlobalScopeBar()`; later wire auth API factory               |
+| `plugins/mta/src/components/MigrationTab.tsx`                          | modify              | 1, 2    | Per-app demo transitions; later consume live API                          |
+| `plugins/mta/src/components/phases/*`                                  | modify              | 1, 2    | Remove scope gates; later consume live API                                |
+| `plugins/mta/src/hooks/usePersonaRole.ts`                              | create              | 1       | Group-membership persona detection                                        |
+| `dev-host/data/catalog/konveyor/mta-users.yaml`                        | modify              | 1       | Named persona users and groups                                            |
+| Demo Components fixture _(since deleted)_                              | modify, then delete | 1, 2    | Persona ownership and demo status; replaced by generated scenario catalog |
+| `dev-host/app-config.yaml`                                             | modify              | 1, 2, 3 | Dev guest persona; later Hub URL and OIDC                                 |
+| `plugins/catalog-backend-module-mta-entity-provider/src/module.ts`     | modify              | 1, 4    | Mock persona ownership/status; later live Hub sync                        |
+| `plugins/scaffolder-backend-module-mta-actions/src/module.ts`          | modify              | 1, 3, 4 | Mock entity refs; later delegated live registration                       |
+| `dev-host/data/catalog/konveyor/mta-template.yaml`                     | modify              | 1, 4    | Link generated demo entity; later live registration                       |
+| `plugins/mta-backend/src/service/types.ts`                             | create              | 2       | Tackle2 domain model types                                                |
+| `plugins/mta-backend/src/service/TackleClient.ts`                      | create              | 2       | Hub REST client (no auth initially)                                       |
+| `plugins/mta-backend/src/router.ts`                                    | modify              | 2, 3    | Add proxy routes; later add auth validation                               |
+| `plugins/mta-backend/src/plugin.ts`                                    | modify              | 2       | Read `mta.baseUrl` config                                                 |
+| `plugins/mta/src/api/types.ts`                                         | create              | 2       | Frontend Tackle2 types                                                    |
+| `plugins/mta/src/api/MtaApiClient.ts`                                  | create              | 2, 3    | Frontend API client; later add auth                                       |
+| `plugins/mta/src/api/index.ts`                                         | create              | 2       | API barrel export                                                         |
+| `plugins/mta/src/hooks/useMtaAnalysis.ts`                              | create              | 2       | Polling hook for analysis tasks                                           |
+| `plugins/mta/src/api/auth.ts`                                          | create              | 3       | `mtaAuthApiRef` definition                                                |
+| `plugins/mta-backend/src/service/TackleClient.ts`                      | modify              | 3       | Require user bearer token                                                 |
+| `plugins/*/package.json`, `dev-host/*/package.json`, `yarn.lock`       | modify              | 5       | Align shared dependencies to the RHDH 2.1 baseline                        |
+| `plugins/mta/src/alpha.tsx`                                            | modify              | 5       | Lazy-load UI from the NFS entry point                                     |
+| `plugins/scaffolder-backend-module-mta-actions/src/module.ts`          | modify              | 5       | Use the supported Scaffolder extension-point export                       |
+| `package.json`                                                         | modify              | 5       | Pin the RHDH CLI and add the `export:dynamic` script                      |
+| `dev-host/start/`, `dev-host/data/` _(development tooling/data)_       | modify              | 2a      | Cohort manifest, seed preparation scenarios, generated catalog/mapping    |
+| `dev-host/app/src/modules/home/`                                       | modify              | 2a      | Development-only sample loading, inventory, and scenario controls         |
+| `dev-host/backend`                                                     | modify              | 2a      | Opt-in development adapter; seed endpoints excluded outside development   |
+| `README.md`, `dev-host/README.md`                                      | modify              | 2a      | Seed scenario and verified startup instructions                           |
+| Target RHDH dynamic-plugin and app configuration (outside `dev-host/`) | create              | 5       | OCI installation and optional NFS extension overrides                     |
 
 ---
 
@@ -1014,7 +973,6 @@ graph LR
     P2 --> P2a
     P2a --> P3
     P3 --> P4
-    P3 --> P5
     P4 --> P6
     P5 --> P6
 ```
